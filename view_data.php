@@ -292,6 +292,7 @@ try {
                 <input type="hidden" name="table" value="<?php echo htmlspecialchars($table_name); ?>">
                 <button type="submit" class="match-btn">Find Matching with NPC</button>
             </form>
+            <button id="create-pos-woo" class="btn btn-success" data-table="<?php echo $table_name; ?>">Create POS in WooCommerce</button>
             <?php endif; ?>
 
             <?php if (isset($_GET['matched']) && $_GET['matched'] == '1' && isset($_SESSION['match_results'])): ?>
@@ -357,6 +358,48 @@ try {
             <?php render_pagination($page, $total_pages, $table_name); ?>
         <?php endif; ?>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const createPosButton = document.getElementById('create-pos-woo');
+        if (createPosButton) {
+            createPosButton.addEventListener('click', function() {
+                const tableName = this.getAttribute('data-table');
+                createPosInWooCommerce(tableName);
+            });
+        }
+        
+        function createPosInWooCommerce(tableName) {
+            // Show loading state
+            const button = document.getElementById('create-pos-woo');
+            const originalText = button.textContent;
+            button.textContent = 'Processing...';
+            button.disabled = true;
+            
+            // Make AJAX call to the server
+            fetch('create_pos_woo.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'table=' + encodeURIComponent(tableName)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing your request.');
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        }
+    });
+    </script>
 </body>
 </html>
 

@@ -68,23 +68,85 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <title>CSV Upload</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .upload-form { max-width: 500px; margin: 0 auto; }
-        .submit-btn { margin-top: 10px; }
-        .requirements { margin: 20px 0; color: #666; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .upload-form { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .requirements { 
+            margin: 20px 0; 
+            color: #555;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-left: 4px solid #4CAF50;
+            border-radius: 3px;
+        }
+        .file-input-container {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .submit-btn { 
+            margin-top: 20px; 
+            padding: 8px 15px; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            width: 200px;
+            margin: 20px auto 0;
+        }
+        .submit-btn:hover { 
+            background-color: #45a049; 
+        }
     </style>
 </head>
 <body>
     <div class="upload-form">
-        <h2>Upload CSV File</h2>
+        <div class="header">
+            <h2>Upload CSV File</h2>
+        </div>
         <div class="requirements">
-            <p>Maximum file size: 50MB</p>
-            <p>Supported format: CSV</p>
+            <p>Please upload your CSV file containing the data you want to import.</p>
+            <p><strong>Requirements:</strong></p>
+            <ul>
+                <li>Maximum file size: 50MB</li>
+                <li>Supported format: CSV (Comma Separated Values)</li>
+                <li>First row should contain column headers</li>
+            </ul>
         </div>
         <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="csvFile" accept=".csv" required>
-            <br>
-            <input type="submit" value="Upload and Map" class="submit-btn">
+            <div class="file-input-container">
+                <label for="csvFile">Select your CSV file:</label>
+                <input type="file" id="csvFile" name="csvFile" accept=".csv" required>
+            </div>
+            <input type="submit" value="Upload and Continue" class="submit-btn">
         </form>
     </div>
 </body>

@@ -40,6 +40,17 @@ try {
     $csv_file = $_SESSION['csv_file'];
     $mapping = $_SESSION['mapping'];
 
+    // First, create a function to standardize field name transformation
+    function sanitize_field_name($field) {
+        // First replace spaces with underscores
+        $field = str_replace(' ', '_', $field);
+        // Then remove trailing special characters
+        $field = rtrim($field, ':;.,');
+        // Finally replace any remaining non-alphanumeric chars with underscores
+        $field = preg_replace('/[^a-zA-Z0-9_]/', '_', $field);
+        return $field;
+    }
+
     // Create table based on mapped fields
     $table_name = 'imported_data_' . date('Y_m_d_His');
     $create_table_sql = "CREATE TABLE IF NOT EXISTS `$table_name` (
@@ -47,8 +58,8 @@ try {
     
     // Add columns based on mapping
     foreach ($mapping as $field => $csv_index) {
-        $field = preg_replace('/[^a-zA-Z0-9_]/', '_', $field);
-        $create_table_sql .= "\n`$field` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci,";
+        $sanitized_field = sanitize_field_name($field);
+        $create_table_sql .= "\n`$sanitized_field` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci,";
     }
     $create_table_sql = rtrim($create_table_sql, ',') . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_520_ci;";
     
@@ -57,9 +68,14 @@ try {
 
     // Prepare insert statement
     $columns = array_keys($mapping);
+    
+    // Convert column names with spaces to match the database column names with underscores
+    // Also remove any trailing colons or other special characters
+    $db_columns = array_map('sanitize_field_name', $columns);
+    
     $placeholders = str_repeat('?,', count($mapping));
     $placeholders = rtrim($placeholders, ',');
-    $insert_sql = "INSERT INTO `$table_name` (`" . implode('`, `', $columns) . "`) VALUES ($placeholders)";
+    $insert_sql = "INSERT INTO `$table_name` (`" . implode('`, `', $db_columns) . "`) VALUES ($placeholders)";
     $stmt = $pdo->prepare($insert_sql);
 
     // Process CSV in chunks

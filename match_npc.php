@@ -47,7 +47,7 @@ define('NPC_DB1_NAME', 'test_play');
 
 try {
     // Debug log the table name
-    log_debug("Attempting to match table: " . $table_name);
+    // log_debug("Attempting to match table: " . $_POST['table']);
     
     if (!isset($_POST['table'])) {
         throw new Exception('No table specified');
@@ -98,13 +98,13 @@ try {
 
     // Query NPC Database 1
     $match_query1 = "
-    
-
-		select i.*, h.hollander_no as npc_holander , i2.inventory_no as npc_hardware 
+select DISTINCT i.*, h.hollander_no as npc_holander , i2.inventory_no as npc_hardware , sds.Need_3mo as 3_month_need , sds.Need_6mo as 6_month_need
 from " . VENDOR_DB_NAME . ".`$table_name`  i 
 inner join `test_play`.hollander h on h.hollander_no = i.`590` 
 inner join `test_play`.inventory_hollander_map ihm on ihm.hollander_id = h.hollander_id
 inner join `test_play`.inventory i2 on i2.inventory_id = ihm.inventory_id
+left join  `npcwebsite`.sales_demand_summary sds on sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+where sds.Need_3mo > 0 or sds.Need_6mo > 0
     ";
     $matches1 = $npc_db1->query($match_query1)->fetchAll(PDO::FETCH_ASSOC);
     log_debug("Found matches: " . count($matches1));
