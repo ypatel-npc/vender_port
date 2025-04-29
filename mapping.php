@@ -14,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $mapping = $_POST['mapping'];
     $_SESSION['mapping'] = $mapping; // Store mapping in session
     
-    // Redirect to processing page
-    header('Location: process.php');
+    // Redirect to progress page instead of process.php
+    header('Location: progress.html');
     exit();
 }
 ?>

@@ -3,6 +3,12 @@ session_start();
 set_time_limit(300); // 5 minutes
 ini_set('memory_limit', '256M');
 
+// Remove the conflicting JSON header and keep only SSE headers
+header('Content-Type: text/event-stream');
+header('Cache-Control: no-cache');
+header('Connection: keep-alive');
+header('X-Accel-Buffering: no'); // For nginx
+
 // Database configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
@@ -11,11 +17,13 @@ define('DB_NAME', 'vendor_port');
 
 // Verify required session data
 if (!isset($_SESSION['csv_file']) || !isset($_SESSION['mapping'])) {
-    header('Location: upload.php');
+    echo "data: " . json_encode(['error' => 'Missing required session data']) . "\n\n";
     exit();
 }
 
-header('Content-Type: application/json');
+// Debug logging
+error_log("CSV File: " . (isset($_SESSION['csv_file']) ? $_SESSION['csv_file'] : 'not set'));
+error_log("Mapping: " . (isset($_SESSION['mapping']) ? json_encode($_SESSION['mapping']) : 'not set'));
 
 try {
     // Create database connection
@@ -40,9 +48,9 @@ try {
     // Add columns based on mapping
     foreach ($mapping as $field => $csv_index) {
         $field = preg_replace('/[^a-zA-Z0-9_]/', '_', $field);
-        $create_table_sql .= "\n`$field` VARCHAR(255),";
+        $create_table_sql .= "\n`$field` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci,";
     }
-    $create_table_sql = rtrim($create_table_sql, ',') . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $create_table_sql = rtrim($create_table_sql, ',') . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_520_ci;";
     
     // Create the table
     $pdo->exec($create_table_sql);
@@ -95,13 +103,13 @@ try {
                     $pdo->beginTransaction();
                     $chunk_count = 0;
 
-                    // Output progress
+                    // Output progress in SSE format
                     $progress = min(100, round(($processed / $total_rows) * 100));
-                    echo json_encode([
+                    echo "data: " . json_encode([
                         'progress' => $progress,
                         'processed' => $processed,
                         'total' => $total_rows
-                    ]) . "\n";
+                    ]) . "\n\n";
                     ob_flush();
                     flush();
                 }
@@ -126,17 +134,27 @@ try {
     unset($_SESSION['csv_headers']);
     unset($_SESSION['mapping']);
 
-    echo json_encode([
+    // Add after successful table creation
+    $stmt = $pdo->prepare("INSERT INTO import_history (vendor_id, imported_table, file_name, total_records) VALUES (?, ?, ?, ?)");
+    $stmt->execute([
+        $_SESSION['vendor_id'],
+        $table_name,
+        basename($csv_file),
+        $total_rows
+    ]);
+
+    // Final output in SSE format
+    echo "data: " . json_encode([
         'progress' => 100,
         'processed' => $processed,
         'total' => $total_rows,
         'complete' => true,
         'table' => $table_name
-    ]);
+    ]) . "\n\n";
 
 } catch (PDOException $e) {
     error_log("Database error: " . $e->getMessage());
-    echo json_encode([
+    echo "data: " . json_encode([
         'error' => 'Database error occurred. Please check error logs.'
-    ]);
+    ]) . "\n\n";
 } 

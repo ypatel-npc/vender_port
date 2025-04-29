@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['csv_file'] = $permanent_file;
             $_SESSION['csv_headers'] = $headers;
             
-            header('Location: mapping.php');
+            header('Location: vendor_details.php');
             exit();
         } else {
             // Clean up on error
