@@ -137,7 +137,8 @@ where sds.Need_3mo > 0 or sds.Need_6mo > 0
     // ";
     // $matches3 = $npc_db3->query($match_query3)->fetchAll(PDO::FETCH_ASSOC);
     // $all_matches = array_merge($all_matches, $matches3);
-
+	log_debug("Total matches: " . count($all_matches));	
+	log_debug("All matches: " . json_encode($all_matches));
     // Store results in session
     $_SESSION['match_results'] = $all_matches;
     $_SESSION['match_count'] = count($all_matches);

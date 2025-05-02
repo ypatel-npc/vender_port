@@ -290,6 +290,18 @@ try {
             </div>
             <form action="match_npc.php" method="POST">
                 <input type="hidden" name="table" value="<?php echo htmlspecialchars($table_name); ?>">
+                
+                <!-- Add dropdown menu for category selection -->
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="category" style="display: block; margin-bottom: 5px; font-weight: bold;">Select Category:</label>
+                    <select name="category" id="category" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; width: 200px;">
+                        <option value="">-- Select Category --</option>
+                        <option value="590">590</option>
+                        <option value="hardware">Hardware</option>
+                        <option value="software">Software</option>
+                    </select>
+                </div>
+                
                 <button type="submit" class="match-btn">Find Matching with NPC</button>
             </form>
             <button id="create-pos-woo" class="btn btn-success" data-table="<?php echo $table_name; ?>">Create POS in WooCommerce</button>
