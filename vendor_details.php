@@ -1,6 +1,10 @@
 <?php
 session_start();
 
+// Include database configuration
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/utils.php';
+
 // Verify if file is uploaded
 if (!isset($_SESSION['csv_file'])) {
     header('Location: upload.php');
@@ -8,9 +12,8 @@ if (!isset($_SESSION['csv_file'])) {
 }
 
 try {
-    // Database connection
-    $pdo = new PDO("mysql:host=localhost;dbname=vendor_port", "root", "");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Connect to database using the connection function from database.php
+    $pdo = get_vendor_db_connection();
 
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Validate required fields
