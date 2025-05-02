@@ -1,20 +1,17 @@
 <?php
 session_start();
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'vendor_port');
+// Include database configuration
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/utils.php';
+
+// Error suppression
+// error_reporting(0);
+// ini_set('display_errors', 0);
 
 try {
-	// Connect to database first
-	$pdo = new PDO(
-		"mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-		DB_USER,
-		DB_PASS,
-		[PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-	);
+	// Connect to database using the connection function from database.php
+	$pdo = get_vendor_db_connection();
 
 	if (isset($_GET['table'])) {
 		// Debug: Check if table parameter exists
@@ -465,6 +462,75 @@ try {
 		.confirm-delete-btn:hover {
 			background: #d32f2f;
 		}
+
+		.table-actions {
+			margin: 20px 0;
+			background: #f8f9fa;
+			padding: 20px;
+			border-radius: 8px;
+			border-left: 4px solid #FF5722;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		}
+
+		.match-form {
+			display: flex;
+			align-items: center;
+			gap: 15px;
+		}
+
+		.match-type-select {
+			padding: 12px 15px;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			background-color: white;
+			font-size: 15px;
+			min-width: 250px;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+			transition: all 0.3s ease;
+		}
+
+		.match-type-select:focus {
+			border-color: #FF5722;
+			outline: none;
+			box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.2);
+		}
+
+		.match-button {
+			background: #FF5722;
+			color: white;
+			padding: 12px 24px;
+			border: none;
+			border-radius: 6px;
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			font-weight: 600;
+			transition: all 0.3s ease;
+			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+			cursor: pointer;
+		}
+
+		.match-button:hover {
+			background: #E64A19;
+			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+			transform: translateY(-2px);
+		}
+
+		.match-button i {
+			font-size: 16px;
+		}
+
+		@media (max-width: 768px) {
+			.match-form {
+				flex-direction: column;
+				align-items: stretch;
+			}
+			
+			.match-type-select, 
+			.match-button {
+				width: 100%;
+			}
+		}
 	</style>
 </head>
 
@@ -521,10 +587,25 @@ try {
 					<p><strong>Import Date:</strong> <?php echo htmlspecialchars($import_info['imported_at']); ?></p>
 					<p><strong>Total Records:</strong> <?php echo htmlspecialchars($import_info['total_records']); ?></p>
 				</div>
-				<form action="match_npc.php" method="POST">
-					<input type="hidden" name="table" value="<?php echo htmlspecialchars($table_name); ?>">
-					<button type="submit" class="match-btn">Find Matching with NPC</button>
-				</form>
+				<div class="table-actions">
+					<form action="match_npc.php" method="post" class="match-form">
+						<input type="hidden" name="table" value="<?php echo htmlspecialchars($table_name); ?>">
+						
+						<select name="match_type" class="match-type-select">
+							<?php
+							// Get the current match type from session or default to '590'
+							$current_match_type = isset($_SESSION['match_type']) ? $_SESSION['match_type'] : '590';
+							?>
+							<option value="590" <?php echo ($current_match_type === '590') ? 'selected' : ''; ?>>Match by 590 (Hollander)</option>
+							<option value="software" <?php echo ($current_match_type === 'software') ? 'selected' : ''; ?>>Match by Software</option>
+							<option value="hardware" <?php echo ($current_match_type === 'hardware') ? 'selected' : ''; ?>>Match by Hardware</option>
+						</select>
+						
+						<button type="submit" class="match-button">
+							<i class="fas fa-exchange-alt"></i> Find Matching with NPC
+						</button>
+					</form>
+				</div>
 				<!-- <button id="create-pos-woo" class="btn btn-success" data-table="<?php echo $table_name; ?>">Create POS in WooCommerce</button> -->
 			<?php endif; ?>
 
@@ -593,6 +674,24 @@ try {
 							<?php endforeach; ?>
 						</tbody>
 					</table>
+				</div>
+			<?php endif; ?>
+
+			<?php if (isset($_GET['matched']) && $_GET['matched'] == '1'): ?>
+				<div class="alert alert-success">
+					<?php 
+					$match_count = isset($_SESSION['match_count']) ? $_SESSION['match_count'] : 0;
+					$match_type = isset($_SESSION['match_type']) ? $_SESSION['match_type'] : '590';
+					$match_type_label = '';
+					
+					switch($match_type) {
+						case 'hardware': $match_type_label = 'Hardware'; break;
+						case 'software': $match_type_label = 'Software'; break;
+						case '590': default: $match_type_label = 'Hollander (590)'; break;
+					}
+					
+					echo "Found $match_count matches using $match_type_label matching.";
+					?>
 				</div>
 			<?php endif; ?>
 

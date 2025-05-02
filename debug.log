@@ -1,0 +1,558 @@
+[2025-05-02 22:21:11] === Starting new matching process ===
+[2025-05-02 22:21:11] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 22:21:11] Match type selected: software
+[2025-05-02 22:21:11] Database connections established
+[2025-05-02 22:21:11] Table verification successful
+[2025-05-02 22:21:11] Building query for match type: software
+[2025-05-02 22:21:11] Using software matching query
+[2025-05-02 22:21:11] Executing match query: 
+            SELECT DISTINCT i.*, s.software_id as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 22:21:11] Query executed successfully
+[2025-05-02 22:21:11] Found matches: 19
+[2025-05-02 22:21:11] Total matches: 19
+[2025-05-02 22:21:11] Results stored in session
+[2025-05-02 22:21:11] Redirecting to results page
+[2025-05-02 22:24:56] === Starting new matching process ===
+[2025-05-02 22:24:56] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 22:24:56] Match type selected: software
+[2025-05-02 22:24:56] Database connections established
+[2025-05-02 22:24:56] Table verification successful
+[2025-05-02 22:24:56] Building query for match type: software
+[2025-05-02 22:24:56] Using software matching query
+[2025-05-02 22:24:56] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 22:24:56] Query executed successfully
+[2025-05-02 22:24:56] Found matches: 19
+[2025-05-02 22:24:56] Total matches: 19
+[2025-05-02 22:24:56] Results stored in session
+[2025-05-02 22:24:56] Redirecting to results page
+[2025-05-02 22:24:59] === Starting new matching process ===
+[2025-05-02 22:24:59] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 22:24:59] Match type selected: 590
+[2025-05-02 22:24:59] Database connections established
+[2025-05-02 22:24:59] Table verification successful
+[2025-05-02 22:24:59] Building query for match type: 590
+[2025-05-02 22:24:59] Using 590 (default) matching query
+[2025-05-02 22:24:59] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 22:24:59] Query executed successfully
+[2025-05-02 22:24:59] Found matches: 0
+[2025-05-02 22:24:59] Total matches: 0
+[2025-05-02 22:24:59] Results stored in session
+[2025-05-02 22:24:59] Redirecting to results page
+[2025-05-02 22:25:01] === Starting new matching process ===
+[2025-05-02 22:25:01] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 22:25:01] Match type selected: software
+[2025-05-02 22:25:01] Database connections established
+[2025-05-02 22:25:01] Table verification successful
+[2025-05-02 22:25:01] Building query for match type: software
+[2025-05-02 22:25:01] Using software matching query
+[2025-05-02 22:25:01] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 22:25:01] Query executed successfully
+[2025-05-02 22:25:01] Found matches: 19
+[2025-05-02 22:25:01] Total matches: 19
+[2025-05-02 22:25:01] Results stored in session
+[2025-05-02 22:25:01] Redirecting to results page
+[2025-05-02 22:25:07] === Starting new matching process ===
+[2025-05-02 22:25:07] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 22:25:07] Match type selected: software
+[2025-05-02 22:25:07] Database connections established
+[2025-05-02 22:25:07] Table verification successful
+[2025-05-02 22:25:07] Building query for match type: software
+[2025-05-02 22:25:07] Using software matching query
+[2025-05-02 22:25:07] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 22:25:07] Query executed successfully
+[2025-05-02 22:25:07] Found matches: 19
+[2025-05-02 22:25:07] Total matches: 19
+[2025-05-02 22:25:07] Results stored in session
+[2025-05-02 22:25:07] Redirecting to results page
+[2025-05-02 23:12:23] === Starting new matching process ===
+[2025-05-02 23:12:23] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:12:23] Match type selected: 590
+[2025-05-02 23:12:23] Database connections established
+[2025-05-02 23:12:23] Table verification successful
+[2025-05-02 23:12:23] Building query for match type: 590
+[2025-05-02 23:12:23] Using 590 (default) matching query
+[2025-05-02 23:12:23] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:12:24] Query executed successfully
+[2025-05-02 23:12:24] Found matches: 130
+[2025-05-02 23:12:24] Total matches: 130
+[2025-05-02 23:12:24] Results stored in session
+[2025-05-02 23:12:24] Redirecting to results page
+[2025-05-02 23:12:30] === Starting new matching process ===
+[2025-05-02 23:12:30] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:12:30] Match type selected: software
+[2025-05-02 23:12:30] Database connections established
+[2025-05-02 23:12:30] Table verification successful
+[2025-05-02 23:12:30] Building query for match type: software
+[2025-05-02 23:12:30] Using software matching query
+[2025-05-02 23:12:30] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:12:32] Query executed successfully
+[2025-05-02 23:12:32] Found matches: 0
+[2025-05-02 23:12:32] Total matches: 0
+[2025-05-02 23:12:32] Results stored in session
+[2025-05-02 23:12:32] Redirecting to results page
+[2025-05-02 23:17:04] === Starting new matching process ===
+[2025-05-02 23:17:04] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:17:04] Match type selected: 590
+[2025-05-02 23:17:04] Database connections established
+[2025-05-02 23:17:04] Table verification successful
+[2025-05-02 23:17:04] Building query for match type: 590
+[2025-05-02 23:17:04] Using 590 (default) matching query
+[2025-05-02 23:17:04] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:17:05] Query executed successfully
+[2025-05-02 23:17:05] Found matches: 130
+[2025-05-02 23:17:05] Total matches: 130
+[2025-05-02 23:17:05] Results stored in session
+[2025-05-02 23:17:05] Redirecting to results page
+[2025-05-02 23:17:09] === Starting new matching process ===
+[2025-05-02 23:17:09] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:17:09] Match type selected: hardware
+[2025-05-02 23:17:09] Database connections established
+[2025-05-02 23:17:09] Table verification successful
+[2025-05-02 23:17:09] Building query for match type: hardware
+[2025-05-02 23:17:09] Using hardware matching query
+[2025-05-02 23:17:09] Executing match query: 
+            SELECT DISTINCT i.*, 
+			i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Hardware Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+			inner join `test_play`.inventory AS i2 on
+			i.`590` = i2.inventory_no
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:17:10] Query executed successfully
+[2025-05-02 23:17:10] Found matches: 0
+[2025-05-02 23:17:10] Total matches: 0
+[2025-05-02 23:17:10] Results stored in session
+[2025-05-02 23:17:10] Redirecting to results page
+[2025-05-02 23:17:48] === Starting new matching process ===
+[2025-05-02 23:17:48] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:17:48] Match type selected: 590
+[2025-05-02 23:17:48] Database connections established
+[2025-05-02 23:17:48] Table verification successful
+[2025-05-02 23:17:48] Building query for match type: 590
+[2025-05-02 23:17:48] Using 590 (default) matching query
+[2025-05-02 23:17:48] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:17:50] Query executed successfully
+[2025-05-02 23:17:50] Found matches: 130
+[2025-05-02 23:17:50] Total matches: 130
+[2025-05-02 23:17:50] Results stored in session
+[2025-05-02 23:17:50] Redirecting to results page
+[2025-05-02 23:18:35] === Starting new matching process ===
+[2025-05-02 23:18:35] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:18:35] Match type selected: 590
+[2025-05-02 23:18:35] Database connections established
+[2025-05-02 23:18:35] Table verification successful
+[2025-05-02 23:18:35] Building query for match type: 590
+[2025-05-02 23:18:35] Using 590 (default) matching query
+[2025-05-02 23:18:35] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:18:37] Query executed successfully
+[2025-05-02 23:18:37] Found matches: 130
+[2025-05-02 23:18:37] Total matches: 130
+[2025-05-02 23:18:37] Results stored in session
+[2025-05-02 23:18:37] Redirecting to results page
+[2025-05-02 23:22:31] === Starting new matching process ===
+[2025-05-02 23:22:31] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:22:31] Match type selected: software
+[2025-05-02 23:22:31] Database connections established
+[2025-05-02 23:22:31] Table verification successful
+[2025-05-02 23:22:31] Building query for match type: software
+[2025-05-02 23:22:31] Using software matching query
+[2025-05-02 23:22:31] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:22:31] Query executed successfully
+[2025-05-02 23:22:31] Found matches: 19
+[2025-05-02 23:22:31] Total matches: 19
+[2025-05-02 23:22:31] Results stored in session
+[2025-05-02 23:22:31] Redirecting to results page
+[2025-05-02 23:22:36] === Starting new matching process ===
+[2025-05-02 23:22:36] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:22:36] Match type selected: hardware
+[2025-05-02 23:22:36] Database connections established
+[2025-05-02 23:22:36] Table verification successful
+[2025-05-02 23:22:36] Building query for match type: hardware
+[2025-05-02 23:22:36] Using hardware matching query
+[2025-05-02 23:22:36] Executing match query: 
+            SELECT DISTINCT i.*, 
+			i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Hardware Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+			inner join `test_play`.inventory AS i2 on
+			i.`590` = i2.inventory_no
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:22:36] Query executed successfully
+[2025-05-02 23:22:36] Found matches: 5
+[2025-05-02 23:22:36] Total matches: 5
+[2025-05-02 23:22:36] Results stored in session
+[2025-05-02 23:22:36] Redirecting to results page
+[2025-05-02 23:26:32] === Starting new matching process ===
+[2025-05-02 23:26:32] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:26:32] Match type selected: software
+[2025-05-02 23:26:32] Database connections established
+[2025-05-02 23:26:32] Table verification successful
+[2025-05-02 23:26:32] Building query for match type: software
+[2025-05-02 23:26:32] Using software matching query
+[2025-05-02 23:26:32] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:26:32] Query executed successfully
+[2025-05-02 23:26:32] Found matches: 19
+[2025-05-02 23:26:32] Total matches: 19
+[2025-05-02 23:26:32] Results stored in session
+[2025-05-02 23:26:32] Redirecting to results page
+[2025-05-02 23:26:39] === Starting new matching process ===
+[2025-05-02 23:26:39] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:26:39] Match type selected: 590
+[2025-05-02 23:26:39] Database connections established
+[2025-05-02 23:26:39] Table verification successful
+[2025-05-02 23:26:39] Building query for match type: 590
+[2025-05-02 23:26:39] Using 590 (default) matching query
+[2025-05-02 23:26:39] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:26:39] Query executed successfully
+[2025-05-02 23:26:39] Found matches: 0
+[2025-05-02 23:26:39] Total matches: 0
+[2025-05-02 23:26:39] Results stored in session
+[2025-05-02 23:26:39] Redirecting to results page
+[2025-05-02 23:26:53] === Starting new matching process ===
+[2025-05-02 23:26:53] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:26:53] Match type selected: 590
+[2025-05-02 23:26:53] Database connections established
+[2025-05-02 23:26:53] Table verification successful
+[2025-05-02 23:26:53] Building query for match type: 590
+[2025-05-02 23:26:53] Using 590 (default) matching query
+[2025-05-02 23:26:53] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:26:54] Query executed successfully
+[2025-05-02 23:26:54] Found matches: 130
+[2025-05-02 23:26:54] Total matches: 130
+[2025-05-02 23:26:54] Results stored in session
+[2025-05-02 23:26:54] Redirecting to results page
+[2025-05-02 23:26:57] === Starting new matching process ===
+[2025-05-02 23:26:57] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:26:57] Match type selected: software
+[2025-05-02 23:26:57] Database connections established
+[2025-05-02 23:26:57] Table verification successful
+[2025-05-02 23:26:57] Building query for match type: software
+[2025-05-02 23:26:57] Using software matching query
+[2025-05-02 23:26:57] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:26:59] Query executed successfully
+[2025-05-02 23:26:59] Found matches: 0
+[2025-05-02 23:26:59] Total matches: 0
+[2025-05-02 23:26:59] Results stored in session
+[2025-05-02 23:26:59] Redirecting to results page
+[2025-05-02 23:28:06] === Starting new matching process ===
+[2025-05-02 23:28:06] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:28:06] Match type selected: software
+[2025-05-02 23:28:06] Database connections established
+[2025-05-02 23:28:06] Table verification successful
+[2025-05-02 23:28:06] Building query for match type: software
+[2025-05-02 23:28:06] Using software matching query
+[2025-05-02 23:28:06] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:28:06] Query executed successfully
+[2025-05-02 23:28:06] Found matches: 19
+[2025-05-02 23:28:06] Total matches: 19
+[2025-05-02 23:28:06] Results stored in session
+[2025-05-02 23:28:06] Redirecting to results page
+[2025-05-02 23:28:12] === Starting new matching process ===
+[2025-05-02 23:28:12] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:28:12] Match type selected: hardware
+[2025-05-02 23:28:12] Database connections established
+[2025-05-02 23:28:12] Table verification successful
+[2025-05-02 23:28:12] Building query for match type: hardware
+[2025-05-02 23:28:12] Using hardware matching query
+[2025-05-02 23:28:12] Executing match query: 
+            SELECT DISTINCT i.*, 
+			i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Hardware Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+			inner join `test_play`.inventory AS i2 on
+			i.`590` = i2.inventory_no
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:28:12] Query executed successfully
+[2025-05-02 23:28:12] Found matches: 5
+[2025-05-02 23:28:12] Total matches: 5
+[2025-05-02 23:28:12] Results stored in session
+[2025-05-02 23:28:12] Redirecting to results page
+[2025-05-02 23:28:17] === Starting new matching process ===
+[2025-05-02 23:28:17] Processing table: imported_data_2025_05_02_213258
+[2025-05-02 23:28:17] Match type selected: 590
+[2025-05-02 23:28:17] Database connections established
+[2025-05-02 23:28:17] Table verification successful
+[2025-05-02 23:28:17] Building query for match type: 590
+[2025-05-02 23:28:17] Using 590 (default) matching query
+[2025-05-02 23:28:17] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_213258` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:28:17] Query executed successfully
+[2025-05-02 23:28:17] Found matches: 0
+[2025-05-02 23:28:17] Total matches: 0
+[2025-05-02 23:28:17] Results stored in session
+[2025-05-02 23:28:17] Redirecting to results page
+[2025-05-02 23:28:23] === Starting new matching process ===
+[2025-05-02 23:28:23] Processing table: imported_data_2025_05_02_212551
+[2025-05-02 23:28:23] Match type selected: 590
+[2025-05-02 23:28:23] Database connections established
+[2025-05-02 23:28:23] Table verification successful
+[2025-05-02 23:28:23] Building query for match type: 590
+[2025-05-02 23:28:23] Using 590 (default) matching query
+[2025-05-02 23:28:23] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_212551` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:28:25] Query executed successfully
+[2025-05-02 23:28:25] Found matches: 130
+[2025-05-02 23:28:25] Total matches: 130
+[2025-05-02 23:28:25] Results stored in session
+[2025-05-02 23:28:25] Redirecting to results page
