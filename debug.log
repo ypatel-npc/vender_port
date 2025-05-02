@@ -556,3 +556,83 @@
 [2025-05-02 23:28:25] Total matches: 130
 [2025-05-02 23:28:25] Results stored in session
 [2025-05-02 23:28:25] Redirecting to results page
+[2025-05-02 23:50:10] === Starting new matching process ===
+[2025-05-02 23:50:10] Processing table: imported_data_2025_05_02_234933
+[2025-05-02 23:50:10] Match type selected: 590
+[2025-05-02 23:50:10] Database connections established
+[2025-05-02 23:50:10] Table verification successful
+[2025-05-02 23:50:10] Building query for match type: 590
+[2025-05-02 23:50:10] Using 590 (default) matching query
+[2025-05-02 23:50:10] Executing match query: 
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '590 Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_234933` i 
+            INNER JOIN `test_play`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `test_play`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `test_play`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `npcwebsite`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+            ...
+[2025-05-02 23:50:10] Query executed successfully
+[2025-05-02 23:50:10] Found matches: 0
+[2025-05-02 23:50:10] Total matches: 0
+[2025-05-02 23:50:10] Results stored in session
+[2025-05-02 23:50:10] Redirecting to results page
+[2025-05-02 23:50:14] === Starting new matching process ===
+[2025-05-02 23:50:14] Processing table: imported_data_2025_05_02_234933
+[2025-05-02 23:50:14] Match type selected: software
+[2025-05-02 23:50:14] Database connections established
+[2025-05-02 23:50:14] Table verification successful
+[2025-05-02 23:50:14] Building query for match type: software
+[2025-05-02 23:50:14] Using software matching query
+[2025-05-02 23:50:14] Executing match query: 
+            SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
+            i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Software Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_234933` i 
+            
+			inner join `test_play`.software as s on
+			i.`590` = s.mfr_software_no
+			inner join `test_play`.inventory AS i2 on
+			s.inventory_id = i2.inventory_id
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:50:14] Query executed successfully
+[2025-05-02 23:50:14] Found matches: 19
+[2025-05-02 23:50:14] Total matches: 19
+[2025-05-02 23:50:14] Results stored in session
+[2025-05-02 23:50:14] Redirecting to results page
+[2025-05-02 23:50:21] === Starting new matching process ===
+[2025-05-02 23:50:21] Processing table: imported_data_2025_05_02_234933
+[2025-05-02 23:50:21] Match type selected: hardware
+[2025-05-02 23:50:21] Database connections established
+[2025-05-02 23:50:21] Table verification successful
+[2025-05-02 23:50:21] Building query for match type: hardware
+[2025-05-02 23:50:21] Using hardware matching query
+[2025-05-02 23:50:21] Executing match query: 
+            SELECT DISTINCT i.*, 
+			i2.inventory_no as npc_hardware,
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            'Hardware Match' as match_type
+            FROM vendor_port.`imported_data_2025_05_02_234933` i 
+			inner join `test_play`.inventory AS i2 on
+			i.`590` = i2.inventory_no
+			left join `npcwebsite`.sales_demand_summary sds on
+			sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+			WHERE (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+
+
+            ...
+[2025-05-02 23:50:21] Query executed successfully
+[2025-05-02 23:50:21] Found matches: 5
+[2025-05-02 23:50:21] Total matches: 5
+[2025-05-02 23:50:21] Results stored in session
+[2025-05-02 23:50:21] Redirecting to results page

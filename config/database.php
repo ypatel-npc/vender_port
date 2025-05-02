@@ -5,16 +5,16 @@
  * Centralized database configuration for the Vendor Port application
  */
 // Error handling for production
-error_reporting(0);
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
+// error_reporting(0);
+// ini_set('display_errors', 0);
+// ini_set('display_startup_errors', 0);
 
-// Set up custom error handler
-set_error_handler(function ($errno, $errstr, $errfile, $errline) {
-	// Log the error but don't display it
-	error_log("Error [$errno]: $errstr in $errfile on line $errline");
-	return true; // Don't execute PHP's internal error handler
-});
+// // Set up custom error handler
+// set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+// 	// Log the error but don't display it
+// 	error_log("Error [$errno]: $errstr in $errfile on line $errline");
+// 	return true; // Don't execute PHP's internal error handler
+// });
 
 
 // Load environment variables
