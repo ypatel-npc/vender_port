@@ -4,6 +4,33 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Function to preview CSV data
+function preview_csv($file_path, $limit = 5) {
+    $preview_data = array();
+    $headers = array();
+    
+    if (($handle = fopen($file_path, "r")) !== FALSE) {
+        // Get headers
+        if (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            $headers = $data;
+        }
+        
+        // Get first few rows
+        $count = 0;
+        while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            if ($count < $limit) {
+                $preview_data[] = $data;
+                $count++;
+            } else {
+                break;
+            }
+        }
+        fclose($handle);
+    }
+    
+    return array('headers' => $headers, 'data' => $preview_data);
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_FILES['csvFile']) && $_FILES['csvFile']['error'] == 0) {
         // Validate file size (max 50MB)
@@ -52,7 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['csv_file'] = $permanent_file;
             $_SESSION['csv_headers'] = $headers;
             
-            header('Location: vendor_details.php');
+            // Generate preview data
+            $preview = preview_csv($permanent_file);
+            $_SESSION['csv_preview'] = $preview;
+            $_SESSION['csv_file_path'] = $permanent_file;
+
+			// header('Location: mapping.php');
+			header('Location: vendor_details.php');
+
             exit();
         } else {
             // Clean up on error

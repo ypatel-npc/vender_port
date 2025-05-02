@@ -39,6 +39,36 @@ if (isset($_SESSION['csv_data']) && !empty($_SESSION['csv_data'])) {
         }
     }
 }
+
+// Function to read CSV and return preview data.
+function get_csv_preview( $file_path, $max_rows = 5 ) {
+	$preview_data = array();
+	$header = array();
+	
+	if ( ( $handle = fopen( $file_path, 'r' ) ) !== false ) {
+		// Get header row.
+		if ( ( $data = fgetcsv( $handle, 1000, ',' ) ) !== false ) {
+			$header = $data;
+		}
+		
+		// Get preview rows.
+		$row_count = 0;
+		while ( ( $data = fgetcsv( $handle, 1000, ',' ) ) !== false && $row_count < $max_rows ) {
+			$preview_data[] = $data;
+			$row_count++;
+		}
+		
+		fclose( $handle );
+	}
+	
+	return array(
+		'header' => $header,
+		'rows' => $preview_data,
+	);
+}
+
+// Get CSV preview data.
+$preview = get_csv_preview( $_SESSION['csv_file'] );
 ?>
 
 <!DOCTYPE html>
@@ -103,6 +133,27 @@ if (isset($_SESSION['csv_data']) && !empty($_SESSION['csv_data'])) {
             justify-content: space-between;
             align-items: center;
         }
+        .preview-container {
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .preview-table th, .preview-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .preview-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .preview-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
     </style>
 </head>
 <body>
@@ -113,6 +164,33 @@ if (isset($_SESSION['csv_data']) && !empty($_SESSION['csv_data'])) {
         
         <div class="instructions">
             <p>Please map each required field to the corresponding column in your CSV file. You can also add custom fields below.</p>
+        </div>
+        
+        <!-- CSV Preview Section -->
+        <div class="preview-container">
+            <h2>CSV Preview</h2>
+            <?php if ( ! empty( $preview['header'] ) ) : ?>
+                <table class="preview-table">
+                    <thead>
+                        <tr>
+                            <?php foreach ( $preview['header'] as $column ) : ?>
+                                <th><?php echo htmlspecialchars($column, ENT_QUOTES, 'UTF-8'); ?></th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $preview['rows'] as $row ) : ?>
+                            <tr>
+                                <?php foreach ( $row as $cell ) : ?>
+                                    <td><?php echo htmlspecialchars($cell, ENT_QUOTES, 'UTF-8'); ?></td>
+                                <?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else : ?>
+                <p>No CSV data found or file is empty.</p>
+            <?php endif; ?>
         </div>
         
         <form method="POST" id="mappingForm">
