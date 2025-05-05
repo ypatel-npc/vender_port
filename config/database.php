@@ -4,7 +4,11 @@
  * 
  * Centralized database configuration for the Vendor Port application
  */
-// Error handling for production
+
+// Include error handling configuration
+require_once __DIR__ . '/error_config.php';
+
+// The commented out error handling code below is now managed by error_config.php
 // error_reporting(0);
 // ini_set('display_errors', 0);
 // ini_set('display_startup_errors', 0);
@@ -15,7 +19,6 @@
 // 	error_log("Error [$errno]: $errstr in $errfile on line $errline");
 // 	return true; // Don't execute PHP's internal error handler
 // });
-
 
 // Load environment variables
 $env_file = __DIR__ . '/../.env';
@@ -36,7 +39,10 @@ if (file_exists($env_file)) {
             $value = substr($value, 1, -1);
         }
         
-        define($name, $value);
+        // Define constant if not already defined
+        if (!defined($name)) {
+            define($name, $value);
+        }
     }
 }
 

@@ -3,6 +3,9 @@ session_start();
 set_time_limit(300); // 5 minutes
 ini_set('memory_limit', '256M');
 
+// Include error configuration
+require_once __DIR__ . '/config/error_config.php';
+
 // Remove the conflicting JSON header and keep only SSE headers
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
