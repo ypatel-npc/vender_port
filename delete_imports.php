@@ -8,11 +8,8 @@
 // Start session
 session_start();
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'vendor_port');
+// Replace hardcoded credentials with config
+require_once __DIR__ . '/config/database.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');
@@ -25,13 +22,8 @@ try {
     
     $table_name = $_POST['table'];
     
-    // Connect to database
-    $pdo = new PDO(
-        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-        DB_USER,
-        DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
+    // Connect to database using the connection function
+    $pdo = get_vendor_db_connection();
     
     // Start transaction
     $pdo->beginTransaction();

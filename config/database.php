@@ -41,6 +41,27 @@ if (file_exists($env_file)) {
 }
 
 // Database connection functions
+function get_database_connection($host, $user, $pass, $name) {
+    static $connections = [];
+    $key = "$host:$name:$user";
+    
+    if (!isset($connections[$key])) {
+        try {
+            $connections[$key] = new PDO(
+                "mysql:host=$host;dbname=$name;charset=utf8mb4",
+                $user,
+                $pass,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (PDOException $e) {
+            error_log("Failed to connect to database ($name): " . $e->getMessage());
+            throw new Exception("Database connection failed");
+        }
+    }
+    
+    return $connections[$key];
+}
+
 function get_vendor_db_connection() {
     static $pdo = null;
     

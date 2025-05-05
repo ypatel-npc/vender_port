@@ -9,11 +9,8 @@ header('Cache-Control: no-cache');
 header('Connection: keep-alive');
 header('X-Accel-Buffering: no'); // For nginx
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'vendor_port');
+// Include database configuration
+require_once __DIR__ . '/config/database.php';
 
 // Verify required session data
 if (!isset($_SESSION['csv_file']) || !isset($_SESSION['mapping'])) {
@@ -26,16 +23,8 @@ error_log("CSV File: " . (isset($_SESSION['csv_file']) ? $_SESSION['csv_file'] :
 error_log("Mapping: " . (isset($_SESSION['mapping']) ? json_encode($_SESSION['mapping']) : 'not set'));
 
 try {
-    // Create database connection
-    $pdo = new PDO(
-        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-        DB_USER,
-        DB_PASS,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]
-    );
+    // Create database connection using the standardized function
+    $pdo = get_vendor_db_connection();
 
     $csv_file = $_SESSION['csv_file'];
     $mapping = $_SESSION['mapping'];
