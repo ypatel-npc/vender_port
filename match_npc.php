@@ -43,6 +43,22 @@ try {
     // Build query based on match type
     log_debug("Building query for match type: $match_type");
     switch ($match_type) {
+		case '591':
+			log_debug("Using 591 matching query");
+			$match_query = "
+            SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
+            sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+            '591 Match' as match_type
+            FROM " . DB_NAME . ".`$table_name` i 
+            INNER JOIN `" . NPC_DB1_NAME . "`.hollander h ON h.hollander_no = i.`590` 
+            INNER JOIN `" . NPC_DB1_NAME . "`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+            INNER JOIN `" . NPC_DB1_NAME . "`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+            LEFT JOIN `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+            WHERE (h.hollander_no LIKE '591-%') AND (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+			";
+			break;
+
+		
         case 'hardware':
             log_debug("Using hardware matching query");
 			$match_query = "

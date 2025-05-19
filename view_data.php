@@ -597,6 +597,7 @@ try {
 							$current_match_type = isset($_SESSION['match_type']) ? $_SESSION['match_type'] : '590';
 							?>
 							<option value="590" <?php echo ($current_match_type === '590') ? 'selected' : ''; ?>>Match by 590 (Hollander)</option>
+							<option value="591" <?php echo ($current_match_type === '591') ? 'selected' : ''; ?>>Match by 591 (Hollander)</option>
 							<option value="software" <?php echo ($current_match_type === 'software') ? 'selected' : ''; ?>>Match by Software</option>
 							<option value="hardware" <?php echo ($current_match_type === 'hardware') ? 'selected' : ''; ?>>Match by Hardware</option>
 						</select>
