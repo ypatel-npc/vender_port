@@ -97,7 +97,22 @@ try {
             // Map data according to field mapping
             $mapped_data = [];
             foreach ($mapping as $field => $csv_index) {
-                $mapped_data[] = isset($data[$csv_index]) ? $data[$csv_index] : null;
+                $value = isset($data[$csv_index]) ? $data[$csv_index] : null;
+                
+                // Apply 590 extraction for the 590 field
+                if (trim($field) === '590' && !empty($value)) {
+                    require_once __DIR__ . '/utils.php';
+                    
+                    // Clean the value (remove newlines and extra spaces)
+                    $clean_value = trim(str_replace(["\n", "\r"], ' ', $value));
+                    
+                    $extraction_result = advanced_590_extraction($clean_value);
+                    $mapped_data[] = $extraction_result['extracted'];
+                    
+                    error_log("DEBUG: Import - 590 extraction: '$clean_value' -> '" . $extraction_result['extracted'] . "'");
+                } else {
+                    $mapped_data[] = $value;
+                }
             }
 
             try {
