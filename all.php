@@ -617,6 +617,7 @@ switch ($action) {
     case 'export_csv':
         if (isset($_GET['table'])) {
             $table_name = $_GET['table'];
+            $export_matched = isset($_GET['matched']) && $_GET['matched'] == '1';
             
             // Verify table exists
             $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?");
@@ -625,10 +626,17 @@ switch ($action) {
                 die('Table not found');
             }
             
-            // Get table data
-            $stmt = $pdo->prepare("SELECT * FROM `" . str_replace('`', '``', $table_name) . "`");
-            $stmt->execute();
-            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if ($export_matched && isset($_SESSION['match_results'])) {
+                // Export matched results
+                $data = $_SESSION['match_results'];
+                $filename = $table_name . '_matched_' . date('Y-m-d_H-i-s') . '.csv';
+            } else {
+                // Export original data
+                $stmt = $pdo->prepare("SELECT * FROM `" . str_replace('`', '``', $table_name) . "`");
+                $stmt->execute();
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $filename = $table_name . '_original_' . date('Y-m-d_H-i-s') . '.csv';
+            }
             
             if (empty($data)) {
                 die('No data to export');
@@ -636,7 +644,7 @@ switch ($action) {
             
             // Set headers for CSV download
             header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="' . $table_name . '_' . date('Y-m-d_H-i-s') . '.csv"');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
             header('Pragma: no-cache');
             header('Expires: 0');
             
@@ -897,10 +905,11 @@ if ($action !== 'process') {
         }
         
         .container {
-            width: 80%;
-            margin: 20px auto;
+            width: 95%;
+            max-width: none;
+            margin: 10px auto;
             background: white;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             border-radius: 5px;
         }
@@ -917,7 +926,7 @@ if ($action !== 'process') {
         
         .btn {
             display: inline-block;
-            background-color: #4CAF50;
+            /* background-color: #4CAF50; */
             color: white;
             padding: 10px 15px;
             text-decoration: none;
@@ -1010,44 +1019,138 @@ if ($action !== 'process') {
         }
         
         .mapping-form {
-            max-width: 800px;
+            width: 100%;
+            max-width: none;
             margin: 0 auto;
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            background: white;
         }
         
         .field-map {
-            margin: 15px 0;
-            position: relative;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .field-map label {
+            min-width: 120px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        
+        .field-map select {
+            flex: 1;
+            max-width: 300px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .field-map select:focus {
+            border-color: #4CAF50;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+        
+        .mapping-actions {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            /* background: linear-gradient(135deg, #4CAF50, #45a049); */
+            color: white;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 0;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, #45a049, #3d8b40);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #1976D2, #1565C0);
+        }
+        
+        .preview-container {
+            width: 100%;
+            overflow-x: auto;
+            margin: 20px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
         .preview-table {
             width: 100%;
+            min-width: 800px;
             border-collapse: collapse;
-            margin-top: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 0;
+            box-shadow: none;
         }
         
         .preview-table th,
         .preview-table td {
-            border: 1px solid #ddd;
+            border: 1px solid #e0e0e0;
             padding: 12px 8px;
             text-align: left;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .preview-table th {
-            background: #4CAF50;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             color: white;
             font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
         
-        .preview-table tr:nth-child(even) {
-            background: #f9f9f9;
+        .preview-table td {
+            background: white;
         }
         
-        .preview-table tr:hover {
-            background: #f0f0f0;
+        .preview-table tr:nth-child(even) td {
+            background: #f8f9fa;
+        }
+        
+        .preview-table tr:hover td {
+            background: #e3f2fd;
         }
         
         .imports-list {
@@ -1258,6 +1361,154 @@ if ($action !== 'process') {
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 0.9em;
+        }
+        
+        /* Responsive design improvements */
+        @media (max-width: 768px) {
+            .container {
+                width: 98%;
+                margin: 5px auto;
+                padding: 10px;
+            }
+            
+            .mapping-form {
+                padding: 15px;
+            }
+            
+            .field-map {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .field-map label {
+                min-width: auto;
+            }
+            
+            .field-map select {
+                max-width: none;
+            }
+            
+            .mapping-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+        
+        /* Scrollbar styling for better UX */
+        .preview-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .preview-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .preview-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        .preview-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* NPC Matching Results Styling */
+        .npc-matching-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .npc-matching-table th {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            font-weight: bold;
+            padding: 12px 8px;
+            text-align: left;
+            border: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        /* Original data columns (green background) */
+        .npc-matching-table td.original-data {
+            background: #e8f5e8;
+            border: 1px solid #c8e6c9;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        
+        .npc-matching-table tr:nth-child(even) td.original-data {
+            background: #d4edda;
+        }
+        
+        .npc-matching-table tr:hover td.original-data {
+            background: #c3e6cb;
+        }
+        
+        /* Matched data columns (orange background) */
+        .npc-matching-table td.matched-data {
+            background: #fff3e0;
+            border: 1px solid #ffcc80;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        
+        .npc-matching-table tr:nth-child(even) td.matched-data {
+            background: #ffe0b2;
+        }
+        
+        .npc-matching-table tr:hover td.matched-data {
+            background: #ffb74d;
+        }
+        
+        /* Column header indicators */
+        .npc-matching-table th.original-header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+        
+        .npc-matching-table th.matched-header {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+        }
+        
+        /* Legend for the color coding */
+        .npc-legend {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .legend-color.original {
+            background: #e8f5e8;
+        }
+        
+        .legend-color.matched {
+            background: #fff3e0;
         }
     </style>
 </head>
@@ -1506,24 +1757,26 @@ if ($action !== 'process') {
                 <div class="sample-data">
                     <h3>Sample Data Preview</h3>
                     <?php if (!empty($sample_data)): ?>
-                        <table class="preview-table">
-                            <thead>
-                                <tr>
-                                    <?php foreach (array_keys($sample_data[0]) as $field): ?>
-                                        <th><?php echo htmlspecialchars($field); ?></th>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($sample_data as $row): ?>
+                        <div class="preview-container">
+                            <table class="preview-table">
+                                <thead>
                                     <tr>
-                                        <?php foreach ($row as $value): ?>
-                                            <td><?php echo htmlspecialchars($value); ?></td>
+                                        <?php foreach (array_keys($sample_data[0]) as $field): ?>
+                                            <th><?php echo htmlspecialchars($field); ?></th>
                                         <?php endforeach; ?>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($sample_data as $row): ?>
+                                        <tr>
+                                            <?php foreach ($row as $value): ?>
+                                                <td><?php echo htmlspecialchars($value); ?></td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     <?php else: ?>
                         <p>No sample data available.</p>
                     <?php endif; ?>
@@ -1609,7 +1862,7 @@ if ($action !== 'process') {
                     </div>
                     
                     <div class="action-buttons">
-                        <a href="all.php?action=export_csv&table=<?php echo urlencode($table_name); ?>" class="btn btn-secondary">Export CSV</a>
+                        <a href="all.php?action=export_csv&table=<?php echo urlencode($table_name); ?>" class="btn btn-secondary">Export Original Data</a>
                         <a href="all.php?action=processing_results&table=<?php echo urlencode($table_name); ?>" class="btn btn-secondary">Processing Results</a>
                         <button onclick="deleteImport('<?php echo htmlspecialchars($table_name); ?>')" class="btn" style="background-color: #dc3545;">Delete Import</button>
                     </div>
@@ -1635,28 +1888,54 @@ if ($action !== 'process') {
                         
                         <div class="match-results">
                             <h3>Matched Results (<?php echo $match_count; ?> matches found)</h3>
-                            <div class="action-buttons">
-                                <a href="all.php?action=export_csv&table=<?php echo urlencode($table_name); ?>" class="btn btn-secondary">Export to CSV</a>
+                            
+                            <!-- Color Legend -->
+                            <div class="npc-legend">
+                                <div class="legend-item">
+                                    <div class="legend-color original"></div>
+                                    <span>Original Data</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color matched"></div>
+                                    <span>Matched Data</span>
+                                </div>
                             </div>
                             
-                            <table class="preview-table">
-                                <thead>
-                                    <tr>
-                                        <?php foreach (array_keys($paginated_matches[0]) as $header): ?>
-                                            <th><?php echo htmlspecialchars($header); ?></th>
-                                        <?php endforeach; ?>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($paginated_matches as $row): ?>
+                            <div class="action-buttons">
+                                <a href="all.php?action=export_csv&table=<?php echo urlencode($table_name); ?>&matched=1" class="btn" style="background-color: #ff8c00; color: white;">Export Matched Data</a>
+                            </div>
+                            
+                            <div class="preview-container">
+                                <table class="npc-matching-table">
+                                    <thead>
                                         <tr>
-                                            <?php foreach ($row as $value): ?>
-                                                <td><?php echo htmlspecialchars($value); ?></td>
+                                            <?php 
+                                            $headers = array_keys($paginated_matches[0]);
+                                            $original_columns = ['590', 'original_description']; // Original data columns
+                                            
+                                            foreach ($headers as $header): 
+                                                $is_original = in_array($header, $original_columns);
+                                                $header_class = $is_original ? 'original-header' : 'matched-header';
+                                            ?>
+                                                <th class="<?php echo $header_class; ?>"><?php echo htmlspecialchars($header); ?></th>
                                             <?php endforeach; ?>
                                         </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($paginated_matches as $row): ?>
+                                            <tr>
+                                                <?php 
+                                                foreach ($row as $header => $value): 
+                                                    $is_original = in_array($header, $original_columns);
+                                                    $cell_class = $is_original ? 'original-data' : 'matched-data';
+                                                ?>
+                                                    <td class="<?php echo $cell_class; ?>"><?php echo htmlspecialchars($value); ?></td>
+                                                <?php endforeach; ?>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                             
                             <!-- Pagination for matched results -->
                             <?php if ($total_match_pages > 1): ?>
@@ -1685,24 +1964,26 @@ if ($action !== 'process') {
                         </div>
                     <?php else: ?>
                         <!-- Display original data -->
-                        <table class="preview-table">
-                            <thead>
-                                <tr>
-                                    <?php foreach ($columns as $column): ?>
-                                        <th><?php echo htmlspecialchars($column); ?></th>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($data as $row): ?>
+                        <div class="preview-container">
+                            <table class="preview-table">
+                                <thead>
                                     <tr>
-                                        <?php foreach ($row as $value): ?>
-                                            <td><?php echo htmlspecialchars($value); ?></td>
+                                        <?php foreach ($columns as $column): ?>
+                                            <th><?php echo htmlspecialchars($column); ?></th>
                                         <?php endforeach; ?>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($data as $row): ?>
+                                        <tr>
+                                            <?php foreach ($row as $value): ?>
+                                                <td><?php echo htmlspecialchars($value); ?></td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                         
                         <?php if ($total_pages > 1): ?>
                             <div class="pagination">
@@ -1828,26 +2109,28 @@ if ($action !== 'process') {
                 
                 <div class="column-info">
                     <h3>Column Information</h3>
-                    <table class="preview-table">
-                        <thead>
-                            <tr>
-                                <th>Column Name</th>
-                                <th>Type</th>
-                                <th>Null</th>
-                                <th>Key</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($columns as $column): ?>
+                    <div class="preview-container">
+                        <table class="preview-table">
+                            <thead>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($column['Field']); ?></td>
-                                    <td><?php echo htmlspecialchars($column['Type']); ?></td>
-                                    <td><?php echo htmlspecialchars($column['Null']); ?></td>
-                                    <td><?php echo htmlspecialchars($column['Key']); ?></td>
+                                    <th>Column Name</th>
+                                    <th>Type</th>
+                                    <th>Null</th>
+                                    <th>Key</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($columns as $column): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($column['Field']); ?></td>
+                                        <td><?php echo htmlspecialchars($column['Type']); ?></td>
+                                        <td><?php echo htmlspecialchars($column['Null']); ?></td>
+                                        <td><?php echo htmlspecialchars($column['Key']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php else: ?>
                 <div class="status-message status-error">
