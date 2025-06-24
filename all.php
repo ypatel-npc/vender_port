@@ -926,7 +926,7 @@ if ($action !== 'process') {
         
         .btn {
             display: inline-block;
-            /* background-color: #4CAF50; */
+            background-color: #4CAF50;
             color: white;
             padding: 10px 15px;
             text-decoration: none;
@@ -1075,7 +1075,7 @@ if ($action !== 'process') {
         
         .btn {
             display: inline-block;
-            /* background: linear-gradient(135deg, #4CAF50, #45a049); */
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             color: white;
             padding: 12px 20px;
             text-decoration: none;
