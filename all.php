@@ -48,14 +48,19 @@ function clean_590_number($input) {
     
     $input = trim((string)$input);
     
-    // Pattern 1: Direct 590-XXXXX format
-    if (preg_match('/^590-(\d+)$/', $input, $matches)) {
+    // Pattern 1: Direct 590-XXXXX format (preserve as is, including any letters)
+    if (preg_match('/^590-(\d+[A-Za-z]*)$/', $input, $matches)) {
         return '590-' . $matches[1];
     }
     
-    // Pattern 2: 590-XXXXX with additional text
-    if (preg_match('/590-(\d+)/', $input, $matches)) {
+    // Pattern 2: 590-XXXXX with additional text (preserve as is, including any letters)
+    if (preg_match('/590-(\d+[A-Za-z]*)/', $input, $matches)) {
         return '590-' . $matches[1];
+    }
+    
+    // Pattern 2.5: 591-XXXXX format (preserve as is, including any letters)
+    if (preg_match('/591-(\d+[A-Za-z]*)/', $input, $matches)) {
+        return '591-' . $matches[1];
     }
     
     // Pattern 13: Handle 3-4 digit numbers by padding with zeros (MOVE THIS BEFORE PATTERN 3)
@@ -129,9 +134,14 @@ function clean_590_number($input) {
         }
     }
     
-    // Pattern 9: Look for 590 numbers in any format within the string
-    if (preg_match('/\b590[-\s]*(\d+)\b/', $input, $matches)) {
+    // Pattern 9: Look for 590 numbers in any format within the string (preserve letters)
+    if (preg_match('/\b590[-\s]*(\d+[A-Za-z]*)\b/', $input, $matches)) {
         return '590-' . $matches[1];
+    }
+    
+    // Pattern 9.5: Look for 591 numbers in any format within the string (preserve letters)
+    if (preg_match('/\b591[-\s]*(\d+[A-Za-z]*)\b/', $input, $matches)) {
+        return '591-' . $matches[1];
     }
     
     // Pattern 10: Extract from OEM or part number patterns
@@ -145,11 +155,14 @@ function clean_590_number($input) {
     }
     
     // Pattern 12: Look for any 5-digit number that could be a 590 number (but not 3-4 digits)
-    if (preg_match('/\b(\d{5})\b/', $input, $matches)) {
-        $number = $matches[1];
-        $words = preg_split('/[\s,;:]+/', $input);
-        if (in_array($number, $words) || strpos($input, $number . ':') === 0) {
-            return '590-' . $number;
+    // Only process if the input doesn't already contain a 590/591 pattern
+    if (!preg_match('/\b(590|591)-\d+/', $input)) {
+        if (preg_match('/\b(\d{5})\b/', $input, $matches)) {
+            $number = $matches[1];
+            $words = preg_split('/[\s,;:]+/', $input);
+            if (in_array($number, $words) || strpos($input, $number . ':') === 0) {
+                return '590-' . $number;
+            }
         }
     }
     
@@ -299,6 +312,26 @@ function sanitize_field_name($field) {
     return $field;
 }
 
+/**
+ * Compare price with budget and return CSS class
+ */
+function get_price_budget_class($price, $budget) {
+    if (empty($price) || empty($budget)) {
+        return '';
+    }
+    
+    $price = floatval($price);
+    $budget = floatval($budget);
+    
+    if ($price < $budget) {
+        return 'price-under-budget';
+    } elseif ($price > $budget) {
+        return 'price-over-budget';
+    } else {
+        return 'price-equal-budget';
+    }
+}
+
 // ============================================================================
 // REQUEST HANDLING
 // ============================================================================
@@ -410,7 +443,7 @@ switch ($action) {
         
         $csv_headers = $_SESSION['csv_headers'];
         $required_fields = ['590'];
-        $optional_fields = [];
+        $optional_fields = ['price'];
         
         // Handle AJAX requests for adding columns
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
@@ -467,7 +500,16 @@ switch ($action) {
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_POST['action'])) {
             $mapping = $_POST['mapping'];
-            $_SESSION['mapping'] = $mapping;
+            
+            // Filter out empty/unmapped fields
+            $filtered_mapping = array();
+            foreach ($mapping as $field => $csv_index) {
+                if (!empty($csv_index) && $csv_index !== '') {
+                    $filtered_mapping[$field] = $csv_index;
+                }
+            }
+            
+            $_SESSION['mapping'] = $filtered_mapping;
             header('Location: all.php?action=preview');
             exit();
         }
@@ -711,6 +753,7 @@ switch ($action) {
                             $match_query = "
                             SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
                             sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+                            COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
                             '591 Match' as match_type
                             FROM " . DB_NAME . ".`$table_name` i 
                             INNER JOIN `" . NPC_DB1_NAME . "`.hollander h ON h.hollander_no = i.`590` 
@@ -726,6 +769,7 @@ switch ($action) {
                             SELECT DISTINCT i.*, 
                             i2.inventory_no as npc_hardware,
                             sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+                            COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
                             'Hardware Match' as match_type
                             FROM " . DB_NAME . ".`$table_name` i 
                             inner join `" . NPC_DB1_NAME . "`.inventory AS i2 on
@@ -741,6 +785,7 @@ switch ($action) {
                             SELECT DISTINCT i.*, s.mfr_software_no as npc_software,
                             i2.inventory_no as npc_hardware,
                             sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+                            COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
                             'Software Match' as match_type
                             FROM " . DB_NAME . ".`$table_name` i 
                             inner join `" . NPC_DB1_NAME . "`.software as s on
@@ -758,6 +803,7 @@ switch ($action) {
                             $match_query = "
                             SELECT DISTINCT i.*, h.hollander_no as npc_holander, i2.inventory_no as npc_hardware, 
                             sds.Need_3mo as 3_month_need, sds.Need_6mo as 6_month_need,
+                            COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
                             '590 Match' as match_type
                             FROM " . DB_NAME . ".`$table_name` i 
                             INNER JOIN `" . NPC_DB1_NAME . "`.hollander h ON h.hollander_no = i.`590` 
@@ -768,6 +814,9 @@ switch ($action) {
                             ";
                             break;
                     }
+                    
+                    // Store the query for debugging/display
+                    $_SESSION['last_match_query'] = $match_query;
                     
                     // Execute the query
                     $result = $npc_db1->query($match_query);
@@ -1510,6 +1559,25 @@ if ($action !== 'process') {
         .legend-color.matched {
             background: #fff3e0;
         }
+        
+        /* Budget comparison styles */
+        .price-under-budget {
+            background: #d4edda !important;
+            color: #155724 !important;
+            font-weight: bold;
+        }
+        
+        .price-over-budget {
+            background: #f8d7da !important;
+            color: #721c24 !important;
+            font-weight: bold;
+        }
+        
+        .price-equal-budget {
+            background: #fff3cd !important;
+            color: #856404 !important;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -1630,9 +1698,21 @@ if ($action !== 'process') {
                     <div id="mappingFields">
                         <?php foreach ($required_fields as $field): ?>
                         <div class="field-map">
-                            <label><?php echo ucfirst($field); ?>:</label>
+                            <label><?php echo ucfirst($field); ?>: *</label>
                             <select name="mapping[<?php echo $field; ?>]" required>
                                 <option value="">Select CSV Column</option>
+                                <?php foreach ($csv_headers as $index => $header): ?>
+                                    <option value="<?php echo $index; ?>"><?php echo htmlspecialchars($header); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php endforeach; ?>
+                        
+                        <?php foreach ($optional_fields as $field): ?>
+                        <div class="field-map">
+                            <label><?php echo ucfirst($field); ?>: (Optional)</label>
+                            <select name="mapping[<?php echo $field; ?>]">
+                                <option value="">Select CSV Column (Optional)</option>
                                 <?php foreach ($csv_headers as $index => $header): ?>
                                     <option value="<?php echo $index; ?>"><?php echo htmlspecialchars($header); ?></option>
                                 <?php endforeach; ?>
@@ -1851,10 +1931,10 @@ if ($action !== 'process') {
                             <div class="form-group" style="display: inline-block; margin-right: 10px;">
                                 <label for="match_type">NPC Match Type:</label>
                                 <select name="match_type" id="match_type" class="form-control" style="display: inline-block; width: auto;">
-                                    <option value="590">Match by 590 (Hollander)</option>
-                                    <option value="591">Match by 591 (Hollander)</option>
-                                    <option value="software">Match by Software</option>
-                                    <option value="hardware">Match by Hardware</option>
+                                    <option value="590" <?php echo (isset($_SESSION['match_type']) && $_SESSION['match_type'] == '590') ? 'selected' : ''; ?>>Match by 590 (Hollander)</option>
+                                    <option value="591" <?php echo (isset($_SESSION['match_type']) && $_SESSION['match_type'] == '591') ? 'selected' : ''; ?>>Match by 591 (Hollander)</option>
+                                    <option value="software" <?php echo (isset($_SESSION['match_type']) && $_SESSION['match_type'] == 'software') ? 'selected' : ''; ?>>Match by Software</option>
+                                    <option value="hardware" <?php echo (isset($_SESSION['match_type']) && $_SESSION['match_type'] == 'hardware') ? 'selected' : ''; ?>>Match by Hardware</option>
                                 </select>
                             </div>
                             <button type="submit" class="btn btn-secondary" style="vertical-align: middle;">Start NPC Matching</button>
@@ -1899,10 +1979,29 @@ if ($action !== 'process') {
                                     <div class="legend-color matched"></div>
                                     <span>Matched Data</span>
                                 </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #d4edda;"></div>
+                                    <span>Price Under Budget</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #f8d7da;"></div>
+                                    <span>Price Over Budget</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #fff3cd;"></div>
+                                    <span>Price Equal to Budget</span>
+                                </div>
                             </div>
                             
                             <div class="action-buttons">
                                 <a href="all.php?action=export_csv&table=<?php echo urlencode($table_name); ?>&matched=1" class="btn" style="background-color: #ff8c00; color: white;">Export Matched Data</a>
+                                <button onclick="toggleQueryDisplay()" class="btn" style="background-color: #17a2b8; color: white;">Show/Hide SQL Query</button>
+                            </div>
+                            
+                            <!-- SQL Query Display -->
+                            <div id="query-display" style="display: none; margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+                                <h4>Executed SQL Query:</h4>
+                                <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;"><?php echo isset($_SESSION['last_match_query']) ? htmlspecialchars($_SESSION['last_match_query']) : 'No query available'; ?></pre>
                             </div>
                             
                             <div class="preview-container">
@@ -1928,6 +2027,14 @@ if ($action !== 'process') {
                                                 foreach ($row as $header => $value): 
                                                     $is_original = in_array($header, $original_columns);
                                                     $cell_class = $is_original ? 'original-data' : 'matched-data';
+                                                    
+                                                    // Add budget comparison for price field
+                                                    if ($header === 'price' && isset($row['budget'])) {
+                                                        $budget_class = get_price_budget_class($value, $row['budget']);
+                                                        if (!empty($budget_class)) {
+                                                            $cell_class .= ' ' . $budget_class;
+                                                        }
+                                                    }
                                                 ?>
                                                     <td class="<?php echo $cell_class; ?>"><?php echo htmlspecialchars($value); ?></td>
                                                 <?php endforeach; ?>
@@ -2051,6 +2158,15 @@ if ($action !== 'process') {
                         .catch(error => {
                             alert('Error deleting import: ' + error);
                         });
+                    }
+                }
+                
+                function toggleQueryDisplay() {
+                    const queryDisplay = document.getElementById('query-display');
+                    if (queryDisplay.style.display === 'none') {
+                        queryDisplay.style.display = 'block';
+                    } else {
+                        queryDisplay.style.display = 'none';
                     }
                 }
             </script>
