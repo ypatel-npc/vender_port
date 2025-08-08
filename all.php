@@ -64,30 +64,35 @@ function clean_590_number($input) {
     }
     
     // Pattern 13: Handle 3-4 digit numbers by padding with zeros (MOVE THIS BEFORE PATTERN 3)
-    // First check for numbers at the beginning with colons (like "8060:")
-    if (preg_match('/^(\d{3,4}):/', $input, $matches)) {
+    // First check for numbers at the beginning with colons (like "8060:" or "6234B:")
+    if (preg_match('/^(\d{3,4}[A-Za-z]*):/', $input, $matches)) {
         $number = $matches[1];
-        if (strlen($number) >= 3 && strlen($number) <= 4) {
-            // Pad with zeros to make it 5 digits
-            $padded_number = str_pad($number, 5, '0', STR_PAD_LEFT);
-            return '590-' . $padded_number;
+        $digits_only = preg_replace('/[^0-9]/', '', $number);
+        if (strlen($digits_only) >= 3 && strlen($digits_only) <= 4) {
+            // Pad with zeros to make it 5 digits, then add any letters back
+            $padded_digits = str_pad($digits_only, 5, '0', STR_PAD_LEFT);
+            $letters = preg_replace('/[0-9]/', '', $number);
+            return '590-' . $padded_digits . $letters;
         }
     }
     
-    // Also check for standalone 3-4 digit numbers
-    if (preg_match('/\b(\d{3,4})\b/', $input, $matches)) {
+    // Also check for standalone 3-4 digit numbers with letters
+    if (preg_match('/\b(\d{3,4}[A-Za-z]*)\b/', $input, $matches)) {
         $number = $matches[1];
-        if (strlen($number) >= 3 && strlen($number) <= 4) {
-            // Pad with zeros to make it 5 digits
-            $padded_number = str_pad($number, 5, '0', STR_PAD_LEFT);
-            return '590-' . $padded_number;
+        $digits_only = preg_replace('/[^0-9]/', '', $number);
+        if (strlen($digits_only) >= 3 && strlen($digits_only) <= 4) {
+            // Pad with zeros to make it 5 digits, then add any letters back
+            $padded_digits = str_pad($digits_only, 5, '0', STR_PAD_LEFT);
+            $letters = preg_replace('/[0-9]/', '', $number);
+            return '590-' . $padded_digits . $letters;
         }
     }
     
-    // Pattern 3: Numbers at the beginning of the string
-    if (preg_match('/^(\d{4,5}):/', $input, $matches)) {
+    // Pattern 3: Numbers at the beginning of the string (including letters)
+    if (preg_match('/^(\d{4,5}[A-Za-z]*):/', $input, $matches)) {
         $number = $matches[1];
-        if (strlen($number) >= 4 && strlen($number) <= 5) {
+        $digits_only = preg_replace('/[^0-9]/', '', $number);
+        if (strlen($digits_only) >= 4 && strlen($digits_only) <= 5) {
             return '590-' . $number;
         }
     }
@@ -117,9 +122,10 @@ function clean_590_number($input) {
         if (preg_match('/590-(\d+)/', $part, $matches)) {
             return '590-' . $matches[1];
         }
-        if (preg_match('/^(\d{4,5})$/', $part, $matches)) {
+        if (preg_match('/^(\d{4,5}[A-Za-z]*)$/', $part, $matches)) {
             $number = $matches[1];
-            if (strlen($number) >= 4 && strlen($number) <= 5) {
+            $digits_only = preg_replace('/[^0-9]/', '', $number);
+            if (strlen($digits_only) >= 4 && strlen($digits_only) <= 5) {
                 return '590-' . $number;
             }
         }
@@ -157,11 +163,14 @@ function clean_590_number($input) {
     // Pattern 12: Look for any 5-digit number that could be a 590 number (but not 3-4 digits)
     // Only process if the input doesn't already contain a 590/591 pattern
     if (!preg_match('/\b(590|591)-\d+/', $input)) {
-        if (preg_match('/\b(\d{5})\b/', $input, $matches)) {
+        if (preg_match('/\b(\d{5}[A-Za-z]*)\b/', $input, $matches)) {
             $number = $matches[1];
-            $words = preg_split('/[\s,;:]+/', $input);
-            if (in_array($number, $words) || strpos($input, $number . ':') === 0) {
-                return '590-' . $number;
+            $digits_only = preg_replace('/[^0-9]/', '', $number);
+            if (strlen($digits_only) == 5) {
+                $words = preg_split('/[\s,;:]+/', $input);
+                if (in_array($number, $words) || strpos($input, $number . ':') === 0) {
+                    return '590-' . $number;
+                }
             }
         }
     }
@@ -872,6 +881,212 @@ switch ($action) {
         }
         break;
         
+    case 'compare_vendors':
+        // Get all available vendor imports
+        $stmt = $pdo->query("
+            SELECT 
+                ih.imported_table,
+                ih.imported_at,
+                ih.total_records,
+                v.vendor_name,
+                v.id as vendor_id
+            FROM import_history ih
+            JOIN vendors v ON v.id = ih.vendor_id
+            ORDER BY ih.imported_at DESC
+        ");
+        $available_vendors = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Handle comparison request
+        if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['vendor_tables'])) {
+            $selected_tables = $_POST['vendor_tables'];
+            
+            if (count($selected_tables) < 2) {
+                $error = 'Please select at least 2 vendors to compare.';
+            } else {
+                // Get vendor names for display
+                $vendor_names = [];
+                foreach ($selected_tables as $table) {
+                    $stmt = $pdo->prepare("
+                        SELECT v.vendor_name 
+                        FROM import_history ih 
+                        JOIN vendors v ON v.id = ih.vendor_id 
+                        WHERE ih.imported_table = ?
+                    ");
+                    $stmt->execute([$table]);
+                    $vendor_names[$table] = $stmt->fetchColumn();
+                }
+                
+                // Simple comparison logic - one query to get all data
+                $comparison_data = [];
+                
+                // First, detect price column names for each table
+                $price_columns = [];
+                foreach ($selected_tables as $table) {
+                    $stmt = $pdo->query("SHOW COLUMNS FROM `$table`");
+                    $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    $price_column = null;
+                    foreach ($columns as $column) {
+                        $field_lower = strtolower($column['Field']);
+                        if (in_array($field_lower, ['price', 'cost', 'amount', 'value', 'rate'])) {
+                            $price_column = $column['Field'];
+                            break;
+                        }
+                    }
+                    
+                    if (!$price_column) {
+                        foreach ($columns as $column) {
+                            if ($column['Field'] !== '590' && $column['Field'] !== 'id') {
+                                $price_column = $column['Field'];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    $price_columns[$table] = $price_column;
+                }
+                
+                // Build a simple query to get all part numbers and their lowest prices from each vendor
+                $select_parts = [];
+                $from_clause = "";
+                $where_clause = "";
+                
+                foreach ($selected_tables as $index => $table) {
+                    $alias = "t" . $index;
+                    $price_column = $price_columns[$table];
+                    if ($price_column) {
+                        $select_parts[] = "MIN($alias.`$price_column`) as vendor" . ($index + 1) . "_price";
+                    } else {
+                        $select_parts[] = "NULL as vendor" . ($index + 1) . "_price";
+                    }
+                    
+                    if ($index === 0) {
+                        $from_clause = "FROM `$table` $alias";
+                        $where_clause = "WHERE $alias.`590` IS NOT NULL AND $alias.`590` != ''";
+                    } else {
+                        $prev_alias = "t" . ($index - 1);
+                        $from_clause .= " LEFT JOIN `$table` $alias ON $prev_alias.`590` = $alias.`590`";
+                    }
+                }
+                
+                $query = "SELECT DISTINCT t0.`590` as part_number, " . implode(", ", $select_parts) . " " . $from_clause . " " . $where_clause . " GROUP BY t0.`590` ORDER BY t0.`590`";
+                
+                // Execute the query
+                $stmt = $pdo->prepare($query);
+                $stmt->execute();
+                $raw_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Process the results
+                foreach ($raw_data as $row) {
+                    $part_number = $row['part_number'];
+                    $prices = [];
+                    $vendor_prices = [];
+                    
+                    // Collect prices from all vendors
+                    foreach ($selected_tables as $index => $table) {
+                        $price_key = "vendor" . ($index + 1) . "_price";
+                        $price = $row[$price_key] ?? null;
+                        
+                        if ($price && $price > 0) {
+                            $prices[] = $price;
+                            $vendor_prices[$table] = $price;
+                        } else {
+                            $vendor_prices[$table] = null;
+                        }
+                    }
+                    
+                    // Calculate best price and vendor
+                    $best_price = !empty($prices) ? min($prices) : 0;
+                    $highest_price = !empty($prices) ? max($prices) : 0;
+                    $price_difference = $highest_price - $best_price;
+                    
+                    // Find best vendor
+                    $best_vendor_index = 0;
+                    foreach ($selected_tables as $index => $table) {
+                        if (isset($vendor_prices[$table]) && $vendor_prices[$table] == $best_price) {
+                            $best_vendor_index = $index;
+                            break;
+                        }
+                    }
+                    
+                    // Build the row data
+                    $row_data = [
+                        '590' => $part_number,
+                        'best_price' => $best_price,
+                        'highest_price' => $highest_price,
+                        'price_difference' => $price_difference,
+                        'best_vendor' => $best_vendor_index
+                    ];
+                    
+                    // Add vendor prices
+                    foreach ($vendor_prices as $table => $price) {
+                        $row_data[$table] = $price;
+                    }
+                    
+                    // Get NPC data
+                    try {
+                        $npc_db1 = get_npc_db1_connection();
+                        $stmt = $npc_db1->prepare("
+                            SELECT h.hollander_no, i2.inventory_no, sds.Need_3mo, sds.Need_6mo, sds.Purchase_Price
+                            FROM hollander h 
+                            INNER JOIN inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+                            INNER JOIN inventory i2 ON i2.inventory_id = ihm.inventory_id
+                            LEFT JOIN " . NPC_WEBSITE_NAME . ".sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+                            WHERE h.hollander_no = ?
+                        ");
+                        $stmt->execute([$part_number]);
+                        $npc_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($npc_data) {
+                            $row_data['npc_hollander'] = $npc_data['hollander_no'];
+                            $row_data['npc_hardware'] = $npc_data['inventory_no'];
+                            $row_data['3_month_need'] = $npc_data['Need_3mo'];
+                            $row_data['6_month_need'] = $npc_data['Need_6mo'];
+                            $row_data['budget'] = $npc_data['Purchase_Price'];
+                            $row_data['match_type'] = '590 Match';
+                        } else {
+                            $row_data['npc_hollander'] = null;
+                            $row_data['npc_hardware'] = null;
+                            $row_data['3_month_need'] = null;
+                            $row_data['6_month_need'] = null;
+                            $row_data['budget'] = null;
+                            $row_data['match_type'] = null;
+                        }
+                    } catch (Exception $e) {
+                        $row_data['npc_hollander'] = null;
+                        $row_data['npc_hardware'] = null;
+                        $row_data['3_month_need'] = null;
+                        $row_data['6_month_need'] = null;
+                        $row_data['budget'] = null;
+                        $row_data['match_type'] = null;
+                    }
+                    
+                    $comparison_data[] = $row_data;
+                }
+                
+                $_SESSION['comparison_data'] = $comparison_data;
+                $_SESSION['vendor_names'] = $vendor_names;
+                $_SESSION['selected_tables'] = $selected_tables;
+                $_SESSION['price_columns'] = $price_columns;
+                
+                header('Location: all.php?action=compare_results');
+                exit();
+            }
+        }
+        break;
+        
+    case 'compare_results':
+        if (!isset($_SESSION['comparison_data'])) {
+            header('Location: all.php?action=compare_vendors');
+            exit();
+        }
+        
+        $comparison_data = $_SESSION['comparison_data'];
+        $vendor_names = $_SESSION['vendor_names'];
+        $selected_tables = $_SESSION['selected_tables'];
+        $price_columns = $_SESSION['price_columns'];
+        break;
+        
     case 'view_data':
         if (isset($_GET['table'])) {
             $table_name = $_GET['table'];
@@ -944,6 +1159,32 @@ if ($action !== 'process') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vendor Port - <?php echo ucfirst($action); ?></title>
+    
+    <script>
+        // Global functions - always available
+        function exportComparison() {
+            // Simple export functionality
+            alert('Export feature will be implemented here');
+        }
+        
+        function toggleQueries() {
+            const querySection = document.getElementById('sql-queries');
+            if (querySection) {
+                if (querySection.style.display === 'none' || querySection.style.display === '') {
+                    querySection.style.display = 'block';
+                } else {
+                    querySection.style.display = 'none';
+                }
+            } else {
+                alert('SQL queries section not found. Please refresh the page and try again.');
+            }
+        }
+        
+        // Make sure functions are available globally
+        window.exportComparison = exportComparison;
+        window.toggleQueries = toggleQueries;
+    </script>
+    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -1578,6 +1819,93 @@ if ($action !== 'process') {
             color: #856404 !important;
             font-weight: bold;
         }
+        
+        /* Comparison table styles */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-table th {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            font-weight: bold;
+            padding: 12px 8px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .comparison-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .comparison-table tr:hover {
+            background: #e3f2fd;
+        }
+        
+        .comparison-table .part-number {
+            font-weight: bold;
+            text-align: left;
+            background: #f0f8ff;
+        }
+        
+        .comparison-table .price-cell {
+            font-weight: 500;
+        }
+        
+        .comparison-table .best-price {
+            background: #d4edda !important;
+            color: #155724 !important;
+            font-weight: bold;
+        }
+        
+        .comparison-table .best-price-cell {
+            background: #d4edda;
+            color: #155724;
+            font-weight: bold;
+        }
+        
+        .comparison-table .difference-cell {
+            background: #fff3cd;
+            color: #856404;
+            font-weight: 500;
+        }
+        
+        .comparison-table .vendor-cell {
+            background: #e8f5e8;
+            color: #2e7d32;
+            font-weight: 500;
+        }
+        
+        .comparison-table .npc-cell {
+            background: #fff3e0;
+            color: #e65100;
+            font-weight: 500;
+        }
+        
+        .comparison-summary {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .comparison-summary h3 {
+            margin-top: 0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -1602,6 +1930,7 @@ if ($action !== 'process') {
             <div class="action-buttons">
                 <a href="all.php?action=upload" class="btn">Upload New Data</a>
                 <a href="all.php?action=view_data" class="btn btn-secondary">View All Imports</a>
+                <a href="all.php?action=compare_vendors" class="btn" style="background: linear-gradient(135deg, #FF9800, #F57C00);">Compare Vendors</a>
             </div>
             
         <?php elseif ($action === 'upload'): ?>
@@ -2253,6 +2582,294 @@ if ($action !== 'process') {
                     Import information not found
                 </div>
             <?php endif; ?>
+        <?php elseif ($action === 'compare_vendors'): ?>
+            <h2>Compare Vendor Prices</h2>
+            <p>Select 2 or more vendors to compare their prices for the same parts.</p>
+            
+            <?php if (empty($available_vendors)): ?>
+                <div class="status-message status-warning">
+                    No vendor data found. Please import some vendor data first.
+                </div>
+            <?php else: ?>
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="vendor_tables">Select Vendors to Compare (Hold Ctrl/Cmd to select multiple):</label>
+                        <select name="vendor_tables[]" id="vendor_tables" multiple size="6" style="width: 100%; padding: 10px;">
+                            <?php foreach ($available_vendors as $vendor): ?>
+                                <option value="<?php echo htmlspecialchars($vendor['imported_table']); ?>">
+                                    <?php echo htmlspecialchars($vendor['vendor_name']); ?> 
+                                    (<?php echo htmlspecialchars($vendor['total_records']); ?> parts - <?php echo date('M d, Y', strtotime($vendor['imported_at'])); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Compare Selected Vendors</button>
+                </form>
+            <?php endif; ?>
+            
+        <?php elseif ($action === 'compare_results'): ?>
+            <a href="all.php?action=compare_vendors" class="back-btn">← Back to Vendor Selection</a>
+            
+            <h2>Price Comparison Results</h2>
+            
+            <?php if (!empty($comparison_data)): ?>
+                <div class="comparison-summary">
+                    <h3>Summary</h3>
+                    <p><strong>Comparing:</strong> 
+                        <?php 
+                        $vendor_list = [];
+                        foreach ($vendor_names as $table => $name) {
+                            $vendor_list[] = htmlspecialchars($name);
+                        }
+                        echo implode(' vs ', $vendor_list);
+                        ?>
+                    </p>
+                    <p><strong>Total Parts:</strong> <?php echo count($comparison_data); ?></p>
+                    
+                    <?php
+                    // Count NPC data availability
+                    $npc_data_count = 0;
+                    $budget_data_count = 0;
+                    $need_data_count = 0;
+                    foreach ($comparison_data as $row) {
+                        if (!empty($row['npc_hardware'])) $npc_data_count++;
+                        if (!empty($row['budget'])) $budget_data_count++;
+                        if (!empty($row['3_month_need']) || !empty($row['6_month_need'])) $need_data_count++;
+                    }
+                    ?>
+                    <p><strong>NPC Data Available:</strong> <?php echo $npc_data_count; ?> parts (<?php echo round(($npc_data_count / count($comparison_data)) * 100, 1); ?>%)</p>
+                    <p><strong>Budget Data Available:</strong> <?php echo $budget_data_count; ?> parts (<?php echo round(($budget_data_count / count($comparison_data)) * 100, 1); ?>%)</p>
+                    <p><strong>Demand Data Available:</strong> <?php echo $need_data_count; ?> parts (<?php echo round(($need_data_count / count($comparison_data)) * 100, 1); ?>%)</p>
+                    
+                    <div class="price-columns-info">
+                        <h4>Price Columns Used:</h4>
+                        <?php foreach ($price_columns as $table => $column): ?>
+                            <p><strong><?php echo htmlspecialchars($vendor_names[$table]); ?>:</strong> 
+                               <code><?php echo htmlspecialchars($column ?: 'NONE FOUND'); ?></code></p>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button onclick="exportComparison()" class="btn btn-secondary">Export Comparison</button>
+                    <button onclick="toggleQueries()" class="btn" style="background: linear-gradient(135deg, #17a2b8, #138496);">Show/Hide SQL Queries</button>
+                </div>
+                  <!-- SQL Queries Section -->
+            <div id="sql-queries" style="display: none; margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+                <h4>SQL Queries Used:</h4>
+                
+                <h5>1. Get All 590 Numbers:</h5>
+                <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+<?php foreach ($selected_tables as $table): ?>
+-- Get unique 590 numbers from <?php echo htmlspecialchars($table); ?>
+SELECT DISTINCT `590` FROM `<?php echo htmlspecialchars($table); ?>` WHERE `590` IS NOT NULL AND `590` != '';
+<?php endforeach; ?>
+                </pre>
+                
+                <h5>2. Get Vendor Prices:</h5>
+                <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+<?php foreach ($selected_tables as $table): ?>
+-- Get price for specific 590 number from <?php echo htmlspecialchars($table); ?>
+SELECT `590`, `<?php echo htmlspecialchars($price_columns[$table]); ?>` 
+FROM `<?php echo htmlspecialchars($table); ?>` 
+WHERE `590` = '590-EXAMPLE' AND `<?php echo htmlspecialchars($price_columns[$table]); ?>` IS NOT NULL;
+<?php endforeach; ?>
+                </pre>
+                
+                <h5>3. Sample Data Check:</h5>
+                <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+<?php foreach ($selected_tables as $table): ?>
+-- Check sample data from <?php echo htmlspecialchars($table); ?>
+SELECT `590`, `<?php echo htmlspecialchars($price_columns[$table]); ?>` 
+FROM `<?php echo htmlspecialchars($table); ?>` 
+WHERE `590` IS NOT NULL AND `590` != '' 
+LIMIT 5;
+<?php endforeach; ?>
+                </pre>
+                
+                                 <h5>4. Table Structure:</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+ <?php foreach ($selected_tables as $table): ?>
+ -- Show columns in <?php echo htmlspecialchars($table); ?>
+ SHOW COLUMNS FROM `<?php echo htmlspecialchars($table); ?>`;
+ <?php endforeach; ?>
+                 </pre>
+                 
+                 <h5>4.5. Detected Price Columns:</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+ <?php foreach ($selected_tables as $table): ?>
+ -- <?php echo htmlspecialchars($table); ?> (<?php echo htmlspecialchars($vendor_names[$table]); ?>)
+ -- Detected price column: <?php echo isset($price_columns[$table]) && !empty($price_columns[$table]) ? htmlspecialchars($price_columns[$table]) : 'NOT FOUND - using default "price"'; ?>
+ 
+ <?php endforeach; ?>
+                 </pre>
+                 
+                 <h5>5. Dynamic Comparison Query:</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+-- Complete comparison query for all selected vendors
+SELECT DISTINCT 
+    i0.`590` as part_number,
+    <?php 
+    $first_table = true;
+    foreach ($selected_tables as $index => $table): 
+        $alias = 'i' . $index;
+        if (!$first_table) echo ",\n    ";
+        $price_col = isset($price_columns[$table]) && !empty($price_columns[$table]) ? $price_columns[$table] : 'price';
+        echo $alias . ".`" . htmlspecialchars($price_col) . "` as " . htmlspecialchars($vendor_names[$table]) . "_price";
+        $first_table = false;
+    endforeach; 
+    ?>,
+    -- NPC Database Matching
+    h.hollander_no as npc_hollander,
+    i2.inventory_no as npc_hardware,
+    sds.Need_3mo as 3_month_need,
+    sds.Need_6mo as 6_month_need,
+    sds.Purchase_Price as budget,
+    '590 Match' as match_type
+FROM `vendor_port`.<?php echo htmlspecialchars($selected_tables[0]); ?> i0
+<?php 
+// Generate LEFT JOINs for all other tables
+for ($i = 1; $i < count($selected_tables); $i++): 
+    $prev_alias = 'i' . ($i - 1);
+    $curr_alias = 'i' . $i;
+    $curr_table = $selected_tables[$i];
+?>
+LEFT JOIN `vendor_port`.<?php echo htmlspecialchars($curr_table); ?> <?php echo $curr_alias; ?> ON <?php echo $curr_alias; ?>.`590` = i0.`590`
+<?php endfor; ?>
+-- NPC Database Joins
+LEFT JOIN `<?php echo NPC_DB1_NAME; ?>`.hollander h ON h.hollander_no = i0.`590` 
+LEFT JOIN `<?php echo NPC_DB1_NAME; ?>`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+LEFT JOIN `<?php echo NPC_DB1_NAME; ?>`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+LEFT JOIN `<?php echo NPC_WEBSITE_NAME; ?>`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+WHERE i0.`590` IS NOT NULL AND i0.`590` != ''
+ORDER BY i0.`590`;
+                 </pre>
+                 
+                 <h5>6. Simplified Vendor-Only Query:</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+-- Vendor comparison only (without NPC database)
+SELECT DISTINCT 
+    i0.`590` as part_number,
+    <?php 
+    $first_table = true;
+    foreach ($selected_tables as $index => $table): 
+        $alias = 'i' . $index;
+        if (!$first_table) echo ",\n    ";
+        $price_col = isset($price_columns[$table]) && !empty($price_columns[$table]) ? $price_columns[$table] : 'price';
+        echo $alias . ".`" . htmlspecialchars($price_col) . "` as " . htmlspecialchars($vendor_names[$table]) . "_price";
+        $first_table = false;
+    endforeach; 
+    ?>
+FROM `vendor_port`.<?php echo htmlspecialchars($selected_tables[0]); ?> i0
+<?php 
+// Generate LEFT JOINs for all other tables
+for ($i = 1; $i < count($selected_tables); $i++): 
+    $prev_alias = 'i' . ($i - 1);
+    $curr_alias = 'i' . $i;
+    $curr_table = $selected_tables[$i];
+?>
+LEFT JOIN `vendor_port`.<?php echo htmlspecialchars($curr_table); ?> <?php echo $curr_alias; ?> ON <?php echo $curr_alias; ?>.`590` = i0.`590`
+<?php endfor; ?>
+WHERE i0.`590` IS NOT NULL AND i0.`590` != ''
+ORDER BY i0.`590`;
+                 </pre>
+                 
+                 <h5>7. NPC Data Query (Hollander Match):</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+-- Get NPC data for each part number (Hollander match)
+SELECT DISTINCT 
+    h.hollander_no as npc_hollander, 
+    i2.inventory_no as npc_hardware,
+    sds.Need_3mo as 3_month_need, 
+    sds.Need_6mo as 6_month_need,
+    COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `<?php echo NPC_WEBSITE_NAME; ?>`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
+    '590 Match' as match_type
+FROM `<?php echo NPC_DB1_NAME; ?>`.hollander h 
+INNER JOIN `<?php echo NPC_DB1_NAME; ?>`.inventory_hollander_map ihm ON ihm.hollander_id = h.hollander_id
+INNER JOIN `<?php echo NPC_DB1_NAME; ?>`.inventory i2 ON i2.inventory_id = ihm.inventory_id
+LEFT JOIN `<?php echo NPC_WEBSITE_NAME; ?>`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+WHERE h.hollander_no = '590-EXAMPLE'
+LIMIT 1;
+                 </pre>
+                 
+                 <h5>8. NPC Data Query (Hardware Match):</h5>
+                 <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; font-size: 12px;">
+-- Get NPC data for each part number (Hardware match - fallback)
+SELECT DISTINCT 
+    i2.inventory_no as npc_hardware,
+    sds.Need_3mo as 3_month_need, 
+    sds.Need_6mo as 6_month_need,
+    COALESCE(sds.Purchase_Price, (SELECT sds2.Purchase_Price FROM `<?php echo NPC_WEBSITE_NAME; ?>`.sales_demand_summary sds2 WHERE sds2.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci AND sds2.Purchase_Price IS NOT NULL LIMIT 1)) as budget,
+    'Hardware Match' as match_type
+FROM `<?php echo NPC_DB1_NAME; ?>`.inventory i2 
+LEFT JOIN `<?php echo NPC_WEBSITE_NAME; ?>`.sales_demand_summary sds ON sds.SKU COLLATE utf8mb4_unicode_520_ci = i2.inventory_no COLLATE utf8mb4_unicode_520_ci
+WHERE i2.inventory_no = '590-EXAMPLE'
+LIMIT 1;
+                 </pre>
+            </div>
+                <div class="preview-container">
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Part Number (590)</th>
+                                <?php foreach ($vendor_names as $table => $name): ?>
+                                    <th><?php echo htmlspecialchars($name); ?></th>
+                                <?php endforeach; ?>
+                                <th>Best Price</th>
+                                <th>Price Difference</th>
+                                <th>Best Vendor</th>
+                                <th>NPC Hollander</th>
+                                <th>NPC Hardware</th>
+                                <th>3 Month Need</th>
+                                <th>6 Month Need</th>
+                                <th>Budget</th>
+                                <th>Match Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($comparison_data as $row): ?>
+                                <tr>
+                                    <td class="part-number"><?php echo htmlspecialchars($row['590']); ?></td>
+                                    <?php foreach ($selected_tables as $table): ?>
+                                        <td class="price-cell <?php echo (isset($row[$table]) && isset($row['best_price']) && $row[$table] == $row['best_price']) ? 'best-price' : ''; ?>">
+                                            <?php echo (isset($row[$table]) && $row[$table]) ? '$' . number_format($row[$table], 2) : '-'; ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                    <td class="best-price-cell">
+                                        <?php echo (isset($row['best_price']) && $row['best_price'] > 0) ? '$' . number_format($row['best_price'], 2) : '-'; ?>
+                                    </td>
+                                    <td class="difference-cell">
+                                        <?php echo (isset($row['price_difference']) && $row['price_difference'] > 0) ? '$' . number_format($row['price_difference'], 2) : '-'; ?>
+                                    </td>
+                                    <td class="vendor-cell">
+                                        <?php 
+                                        if (isset($row['best_vendor']) && isset($selected_tables[$row['best_vendor']]) && isset($vendor_names[$selected_tables[$row['best_vendor']]])) {
+                                            echo htmlspecialchars($vendor_names[$selected_tables[$row['best_vendor']]]);
+                                        } else {
+                                            echo '-';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td class="npc-cell"><?php echo isset($row['npc_hollander']) ? htmlspecialchars($row['npc_hollander']) : '-'; ?></td>
+                                    <td class="npc-cell"><?php echo isset($row['npc_hardware']) ? htmlspecialchars($row['npc_hardware']) : '-'; ?></td>
+                                    <td class="npc-cell"><?php echo isset($row['3_month_need']) ? htmlspecialchars($row['3_month_need']) : '-'; ?></td>
+                                    <td class="npc-cell"><?php echo isset($row['6_month_need']) ? htmlspecialchars($row['6_month_need']) : '-'; ?></td>
+                                    <td class="npc-cell"><?php echo isset($row['budget']) ? '$' . number_format($row['budget'], 2) : '-'; ?></td>
+                                    <td class="npc-cell"><?php echo isset($row['match_type']) ? htmlspecialchars($row['match_type']) : '-'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="status-message status-warning">
+                    No matching parts found between the selected vendors.
+                </div>
+            <?php endif; ?>
+            
+
+            
+          
         <?php endif; ?>
         
         <?php if ($action !== 'dashboard'): ?>
