@@ -264,21 +264,27 @@ function get_csv_preview($file_path, $max_rows = 5) {
 /**
  * Get sample data from CSV
  */
-function get_sample_data($file_path, $mapping, $sample_rows = 3) {
+function get_sample_data($file_path, $mapping, $sample_rows = 3, $bypass_590 = false) {
     $sample_data = [];
     
+    // Debug logging
+    error_log("get_sample_data called with bypass_590 = " . ($bypass_590 ? 'true' : 'false'));
+    error_log("get_sample_data mapping = " . print_r($mapping, true));
+    
     if (($handle = fopen($file_path, 'r')) !== false) {
-        fgetcsv($handle);
+        $header = fgetcsv($handle);
+        error_log("CSV header: " . print_r($header, true));
         
         $row_count = 0;
         while (($data = fgetcsv($handle)) !== false && $row_count < $sample_rows) {
+            error_log("Processing row $row_count: " . print_r($data, true));
             $mapped_row = [];
             $has_590_field = false;
             
             foreach ($mapping as $field => $csv_index) {
                 $value = isset($data[$csv_index]) ? $data[$csv_index] : '';
                 
-                if (trim($field) === '590' && !empty($value)) {
+                if (trim($field) === '590' && !empty($value) && !$bypass_590) {
                     $clean_value = trim(str_replace(["\n", "\r"], ' ', $value));
                     $extraction_result = advanced_590_extraction($clean_value);
                     $mapped_row[$field] = $extraction_result['extracted'];
@@ -289,15 +295,19 @@ function get_sample_data($file_path, $mapping, $sample_rows = 3) {
                 }
             }
             
-            if (isset($mapping['590']) && !$has_590_field) {
+            if (!$bypass_590 && isset($mapping['590']) && !$has_590_field) {
                 $mapped_row['original_description'] = '';
             }
             
+            error_log("Mapped row $row_count: " . print_r($mapped_row, true));
             $sample_data[] = $mapped_row;
             $row_count++;
         }
         fclose($handle);
     }
+    
+    // Debug logging
+    error_log("get_sample_data returning " . count($sample_data) . " rows");
     
     return $sample_data;
 }
@@ -445,6 +455,9 @@ switch ($action) {
         $required_fields = ['590'];
         $optional_fields = ['price'];
         
+        // Debug: Log CSV headers
+        error_log("CSV Headers: " . print_r($csv_headers, true));
+        
         // Handle AJAX requests for adding columns
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             $response = array();
@@ -499,17 +512,24 @@ switch ($action) {
         }
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_POST['action'])) {
+            // Debug: Log the POST data
+            error_log("Mapping POST data: " . print_r($_POST, true));
+            
             $mapping = $_POST['mapping'];
+            error_log("Raw mapping: " . print_r($mapping, true));
             
             // Filter out empty/unmapped fields
             $filtered_mapping = array();
             foreach ($mapping as $field => $csv_index) {
-                if (!empty($csv_index) && $csv_index !== '') {
+                if ($csv_index !== '' && $csv_index !== null) {
                     $filtered_mapping[$field] = $csv_index;
                 }
             }
             
+            error_log("Filtered mapping: " . print_r($filtered_mapping, true));
+            
             $_SESSION['mapping'] = $filtered_mapping;
+            $_SESSION['bypass_590'] = isset($_POST['bypass_590']) ? true : false;
             header('Location: all.php?action=preview');
             exit();
         }
@@ -526,7 +546,13 @@ switch ($action) {
         $mapping = $_SESSION['mapping'];
         $csv_file = $_SESSION['csv_file'];
         $csv_headers = $_SESSION['csv_headers'];
-        $sample_data = get_sample_data($csv_file, $mapping);
+        $bypass_590 = isset($_SESSION['bypass_590']) ? $_SESSION['bypass_590'] : false;
+        $sample_data = get_sample_data($csv_file, $mapping, 3, $bypass_590);
+        
+        // Debug information
+        error_log("Preview - bypass_590: " . ($bypass_590 ? 'true' : 'false'));
+        error_log("Preview - mapping: " . print_r($mapping, true));
+        error_log("Preview - sample_data count: " . count($sample_data));
         break;
         
     case 'process':
@@ -593,7 +619,7 @@ switch ($action) {
                 foreach ($mapping as $field => $csv_index) {
                     $value = isset($data[$csv_index]) ? $data[$csv_index] : null;
                     
-                    if (trim($field) === '590' && !empty($value)) {
+                    if (trim($field) === '590' && !empty($value) && !$_SESSION['bypass_590']) {
                         $clean_value = trim(str_replace(["\n", "\r"], ' ', $value));
                         $extraction_result = advanced_590_extraction($clean_value);
                         $mapped_data[] = $extraction_result['extracted'];
@@ -1760,6 +1786,47 @@ if ($action !== 'process') {
                     <div class="mapping-actions" style="margin: 20px 0;">
                         <button type="button" onclick="addNewColumn()" class="btn btn-secondary">Add New Column</button>
                         <button type="button" onclick="addRemainingColumns()" class="btn btn-secondary">Add Remaining Columns</button>
+                    </div>
+                    
+                    <div class="bypass-option" style="margin: 30px 0; padding: 20px; background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #ffc107; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="background-color: #ffc107; color: #000; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 20px; font-weight: bold;">
+                                ⚠️
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 5px 0; color: #856404; font-size: 18px;">Important: Data Type Selection</h4>
+                                <p style="margin: 0; color: #856404; font-size: 14px;">Choose how your numbers should be processed</p>
+                            </div>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <label style="display: flex; align-items: flex-start; cursor: pointer; margin-bottom: 10px;">
+                                <input type="checkbox" name="bypass_590" value="1" style="margin-right: 12px; margin-top: 2px; transform: scale(1.2);">
+                                <div>
+                                    <strong style="color: #dc3545; font-size: 16px;">This data contains NON-590 numbers</strong>
+                                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 14px;">
+                                        Check this if you're uploading hardware numbers, software numbers, part numbers, or any other type of numbers that are NOT 590 numbers.
+                                    </p>
+                                </div>
+                            </label>
+                            
+                            <div style="background-color: #f8f9fa; padding: 12px; border-radius: 4px; border-left: 4px solid #28a745;">
+                                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                    <span style="background-color: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 10px;">INFO</span>
+                                    <strong style="color: #155724;">Processing Options:</strong>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
+                                    <div style="background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                                        <strong style="color: #dc3545;">✓ When CHECKED:</strong><br>
+                                        <span style="color: #6c757d;">Numbers will be used as-is without any 590 processing</span>
+                                    </div>
+                                    <div style="background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                                        <strong style="color: #28a745;">✓ When UNCHECKED:</strong><br>
+                                        <span style="color: #6c757d;">Numbers will be processed as 590 numbers (default)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn">Continue to Preview</button>
