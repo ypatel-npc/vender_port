@@ -264,21 +264,27 @@ function get_csv_preview($file_path, $max_rows = 5) {
 /**
  * Get sample data from CSV
  */
-function get_sample_data($file_path, $mapping, $sample_rows = 3) {
+function get_sample_data($file_path, $mapping, $sample_rows = 3, $bypass_590 = false) {
     $sample_data = [];
     
+    // Debug logging
+    error_log("get_sample_data called with bypass_590 = " . ($bypass_590 ? 'true' : 'false'));
+    error_log("get_sample_data mapping = " . print_r($mapping, true));
+    
     if (($handle = fopen($file_path, 'r')) !== false) {
-        fgetcsv($handle);
+        $header = fgetcsv($handle);
+        error_log("CSV header: " . print_r($header, true));
         
         $row_count = 0;
         while (($data = fgetcsv($handle)) !== false && $row_count < $sample_rows) {
+            error_log("Processing row $row_count: " . print_r($data, true));
             $mapped_row = [];
             $has_590_field = false;
             
             foreach ($mapping as $field => $csv_index) {
                 $value = isset($data[$csv_index]) ? $data[$csv_index] : '';
                 
-                if (trim($field) === '590' && !empty($value)) {
+                if (trim($field) === '590' && !empty($value) && !$bypass_590) {
                     $clean_value = trim(str_replace(["\n", "\r"], ' ', $value));
                     $extraction_result = advanced_590_extraction($clean_value);
                     $mapped_row[$field] = $extraction_result['extracted'];
@@ -289,15 +295,19 @@ function get_sample_data($file_path, $mapping, $sample_rows = 3) {
                 }
             }
             
-            if (isset($mapping['590']) && !$has_590_field) {
+            if (!$bypass_590 && isset($mapping['590']) && !$has_590_field) {
                 $mapped_row['original_description'] = '';
             }
             
+            error_log("Mapped row $row_count: " . print_r($mapped_row, true));
             $sample_data[] = $mapped_row;
             $row_count++;
         }
         fclose($handle);
     }
+    
+    // Debug logging
+    error_log("get_sample_data returning " . count($sample_data) . " rows");
     
     return $sample_data;
 }
@@ -445,6 +455,9 @@ switch ($action) {
         $required_fields = ['590'];
         $optional_fields = ['price'];
         
+        // Debug: Log CSV headers
+        error_log("CSV Headers: " . print_r($csv_headers, true));
+        
         // Handle AJAX requests for adding columns
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             $response = array();
@@ -499,17 +512,24 @@ switch ($action) {
         }
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_POST['action'])) {
+            // Debug: Log the POST data
+            error_log("Mapping POST data: " . print_r($_POST, true));
+            
             $mapping = $_POST['mapping'];
+            error_log("Raw mapping: " . print_r($mapping, true));
             
             // Filter out empty/unmapped fields
             $filtered_mapping = array();
             foreach ($mapping as $field => $csv_index) {
-                if (!empty($csv_index) && $csv_index !== '') {
+                if ($csv_index !== '' && $csv_index !== null) {
                     $filtered_mapping[$field] = $csv_index;
                 }
             }
             
+            error_log("Filtered mapping: " . print_r($filtered_mapping, true));
+            
             $_SESSION['mapping'] = $filtered_mapping;
+            $_SESSION['bypass_590'] = isset($_POST['bypass_590']) ? true : false;
             header('Location: all.php?action=preview');
             exit();
         }
@@ -526,7 +546,13 @@ switch ($action) {
         $mapping = $_SESSION['mapping'];
         $csv_file = $_SESSION['csv_file'];
         $csv_headers = $_SESSION['csv_headers'];
-        $sample_data = get_sample_data($csv_file, $mapping);
+        $bypass_590 = isset($_SESSION['bypass_590']) ? $_SESSION['bypass_590'] : false;
+        $sample_data = get_sample_data($csv_file, $mapping, 3, $bypass_590);
+        
+        // Debug information
+        error_log("Preview - bypass_590: " . ($bypass_590 ? 'true' : 'false'));
+        error_log("Preview - mapping: " . print_r($mapping, true));
+        error_log("Preview - sample_data count: " . count($sample_data));
         break;
         
     case 'process':
@@ -593,7 +619,7 @@ switch ($action) {
                 foreach ($mapping as $field => $csv_index) {
                     $value = isset($data[$csv_index]) ? $data[$csv_index] : null;
                     
-                    if (trim($field) === '590' && !empty($value)) {
+                    if (trim($field) === '590' && !empty($value) && !$_SESSION['bypass_590']) {
                         $clean_value = trim(str_replace(["\n", "\r"], ' ', $value));
                         $extraction_result = advanced_590_extraction($clean_value);
                         $mapped_data[] = $extraction_result['extracted'];
@@ -843,11 +869,46 @@ switch ($action) {
         }
         break;
         
-    case 'match_results':
-        // This case is no longer needed as we handle results in view_data
-        header('Location: all.php?action=view_data');
-        exit();
-        break;
+            case 'match_results':
+            // This case is no longer needed as we handle results in view_data
+            header('Location: all.php?action=view_data');
+            exit();
+            break;
+            
+        case 'compare_data':
+            // This case is handled in the HTML output section
+            break;
+            
+        case 'export_compare':
+            if (isset($_SESSION['compare_results']) && !empty($_SESSION['compare_results'])) {
+                $data = $_SESSION['compare_results'];
+                $tables = isset($_SESSION['compare_tables']) ? $_SESSION['compare_tables'] : [];
+                $filename = 'compare_results_' . implode('_vs_', array_slice($tables, 0, 2)) . '_' . date('Y-m-d_H-i-s') . '.csv';
+                
+                // Set headers for CSV download
+                header('Content-Type: text/csv');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                
+                // Output CSV
+                $output = fopen('php://output', 'w');
+                
+                // Headers
+                fputcsv($output, array_keys($data[0]));
+                
+                // Data
+                foreach ($data as $row) {
+                    fputcsv($output, $row);
+                }
+                
+                fclose($output);
+                exit();
+            } else {
+                header('Location: all.php?action=compare_data');
+                exit();
+            }
+            break;
         
     case 'processing_results':
         if (isset($_GET['table'])) {
@@ -1602,6 +1663,7 @@ if ($action !== 'process') {
             <div class="action-buttons">
                 <a href="all.php?action=upload" class="btn">Upload New Data</a>
                 <a href="all.php?action=view_data" class="btn btn-secondary">View All Imports</a>
+                <a href="all.php?action=compare_data" class="btn" style="background-color: #ff8c00;">Compare Data</a>
             </div>
             
         <?php elseif ($action === 'upload'): ?>
@@ -1724,6 +1786,47 @@ if ($action !== 'process') {
                     <div class="mapping-actions" style="margin: 20px 0;">
                         <button type="button" onclick="addNewColumn()" class="btn btn-secondary">Add New Column</button>
                         <button type="button" onclick="addRemainingColumns()" class="btn btn-secondary">Add Remaining Columns</button>
+                    </div>
+                    
+                    <div class="bypass-option" style="margin: 30px 0; padding: 20px; background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #ffc107; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="background-color: #ffc107; color: #000; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 20px; font-weight: bold;">
+                                ⚠️
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 5px 0; color: #856404; font-size: 18px;">Important: Data Type Selection</h4>
+                                <p style="margin: 0; color: #856404; font-size: 14px;">Choose how your numbers should be processed</p>
+                            </div>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <label style="display: flex; align-items: flex-start; cursor: pointer; margin-bottom: 10px;">
+                                <input type="checkbox" name="bypass_590" value="1" style="margin-right: 12px; margin-top: 2px; transform: scale(1.2);">
+                                <div>
+                                    <strong style="color: #dc3545; font-size: 16px;">This data contains NON-590 numbers</strong>
+                                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 14px;">
+                                        Check this if you're uploading hardware numbers, software numbers, part numbers, or any other type of numbers that are NOT 590 numbers.
+                                    </p>
+                                </div>
+                            </label>
+                            
+                            <div style="background-color: #f8f9fa; padding: 12px; border-radius: 4px; border-left: 4px solid #28a745;">
+                                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                    <span style="background-color: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 10px;">INFO</span>
+                                    <strong style="color: #155724;">Processing Options:</strong>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
+                                    <div style="background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                                        <strong style="color: #dc3545;">✓ When CHECKED:</strong><br>
+                                        <span style="color: #6c757d;">Numbers will be used as-is without any 590 processing</span>
+                                    </div>
+                                    <div style="background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                                        <strong style="color: #28a745;">✓ When UNCHECKED:</strong><br>
+                                        <span style="color: #6c757d;">Numbers will be processed as 590 numbers (default)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn">Continue to Preview</button>
@@ -2133,6 +2236,7 @@ if ($action !== 'process') {
                 
                 <div class="action-buttons">
                     <a href="all.php?action=dashboard" class="btn">Back to Dashboard</a>
+                    <a href="all.php?action=compare_data" class="btn" style="background-color: #ff8c00;">Compare Data</a>
                 </div>
             <?php endif; ?>
             
@@ -2190,6 +2294,373 @@ if ($action !== 'process') {
                 
                 <button type="submit" class="btn">Start NPC Matching</button>
             </form>
+            
+        <?php elseif ($action === 'compare_data'): ?>
+            <h2>Compare Vendor Data</h2>
+            
+            <?php if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['compare_tables'])): ?>
+                <?php
+                $selected_tables = $_POST['compare_tables'];
+                $price_column = $_POST['price_column'] ?? 'price';
+                
+                if (count($selected_tables) >= 2) {
+                    try {
+                        // Get database connections
+                        $vendor_db = get_vendor_db_connection();
+                        $npc_db1 = get_npc_db1_connection();
+                        $npc_website_db = get_npc_website_connection();
+                        
+                        // Build the comparison query
+                        $union_parts = [];
+                        $join_parts = [];
+                        $vendor_count = 1;
+                        
+                        foreach ($selected_tables as $table_name) {
+                            $union_parts[] = "SELECT `590` AS part_number FROM " . DB_NAME . ".`$table_name`";
+                            $join_parts[] = "LEFT JOIN " . DB_NAME . ".`$table_name` v$vendor_count \n    ON v$vendor_count.`590` = p.part_number";
+                            $vendor_count++;
+                        }
+                        
+                        $union_query = implode("\n        UNION ALL\n        ", $union_parts);
+                        $join_query = implode("\n\n", $join_parts);
+                        
+                        // Get vendor names for the selected tables
+                        $vendor_names = [];
+                        foreach ($selected_tables as $table_name) {
+                            $stmt = $pdo->prepare("
+                                SELECT v.vendor_name 
+                                FROM import_history ih 
+                                JOIN vendors v ON v.id = ih.vendor_id 
+                                WHERE ih.imported_table = ?
+                            ");
+                            $stmt->execute([$table_name]);
+                            $vendor_name = $stmt->fetchColumn();
+                            $vendor_names[] = $vendor_name ?: 'Unknown_Vendor';
+                        }
+                        
+                        // Build vendor price columns with actual vendor names
+                        $vendor_price_columns = [];
+                        for ($i = 1; $i <= count($selected_tables); $i++) {
+                            $vendor_name = str_replace(' ', '_', $vendor_names[$i-1]);
+                            $vendor_price_columns[] = "v$i.$price_column AS {$vendor_name}_price";
+                        }
+                        
+                        // Build dynamic CASE conditions for cheapest vendor with actual vendor names
+                        $case_conditions = [];
+                        for ($i = 1; $i <= count($selected_tables); $i++) {
+                            $conditions = [];
+                            for ($j = 1; $j <= count($selected_tables); $j++) {
+                                if ($j != $i) {
+                                    $conditions[] = "CAST(v$i.$price_column AS DECIMAL(10,2)) <= CAST(v$j.$price_column AS DECIMAL(10,2))";
+                                }
+                            }
+                            $vendor_name = $vendor_names[$i-1];
+                            $case_conditions[] = "WHEN v$i.$price_column IS NOT NULL AND (" . implode(" AND ", $conditions) . ") THEN '$vendor_name'";
+                        }
+                        
+                        $compare_query = "SELECT 
+    p.part_number,
+    " . implode(",\n    ", $vendor_price_columns) . ",
+    inv.inventory_no AS npc_inventory,
+    sds.Need_3mo,
+    sds.Need_6mo,
+    sds.Purchase_Price AS npc_budget,
+    
+    CASE
+        " . implode("\n        ", $case_conditions) . "
+        ELSE 'No Price'
+    END AS cheapest_vendor,
+    
+    (sds.Purchase_Price - LEAST(" . implode(", ", array_map(function($i) use ($price_column) {
+        return "IFNULL(CAST(v$i.$price_column AS DECIMAL(10,2)), 999999)";
+    }, range(1, count($selected_tables)))) . ")) AS price_difference
+
+FROM (
+    SELECT DISTINCT part_number FROM (
+        " . $union_query . "
+    ) AS combined_parts
+    WHERE part_number IS NOT NULL AND part_number != ''
+) AS p
+
+" . $join_query . "
+
+JOIN `" . NPC_DB1_NAME . "`.hollander h 
+    ON h.hollander_no = p.part_number
+
+JOIN `" . NPC_DB1_NAME . "`.inventory_hollander_map ihm 
+    ON ihm.hollander_id = h.hollander_id
+
+JOIN `" . NPC_DB1_NAME . "`.inventory inv 
+    ON inv.inventory_id = ihm.inventory_id
+
+JOIN `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds 
+    ON sds.SKU COLLATE utf8mb4_unicode_520_ci = inv.inventory_no COLLATE utf8mb4_unicode_520_ci
+
+WHERE p.part_number IS NOT NULL AND p.part_number != ''";
+                        
+                        // Execute the query
+                        $result = $npc_db1->query($compare_query);
+                        if (!$result) {
+                            $error_info = $npc_db1->errorInfo();
+                            throw new Exception("Database query failed: " . $error_info[2]);
+                        }
+                        $compare_results = $result->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        // Store results in session for export
+                        $_SESSION['compare_results'] = $compare_results;
+                        $_SESSION['compare_tables'] = $selected_tables;
+                        $_SESSION['compare_query'] = $compare_query;
+                        
+                        // Setup pagination
+                        $per_page = 50;
+                        $total_results = count($compare_results);
+                        $total_pages = ceil($total_results / $per_page);
+                        $current_page = isset($_GET['page']) ? max(1, min((int)$_GET['page'], $total_pages)) : 1;
+                        $offset = ($current_page - 1) * $per_page;
+                        
+                        // Store pagination info in session
+                        $_SESSION['compare_pagination'] = [
+                            'total_results' => $total_results,
+                            'total_pages' => $total_pages,
+                            'per_page' => $per_page,
+                            'current_page' => $current_page
+                        ];
+                        
+                        // Get paginated results
+                        $paginated_results = array_slice($compare_results, $offset, $per_page);
+                        
+                    } catch (Exception $e) {
+                        error_log("Compare data error: " . $e->getMessage());
+                        $error = "Compare Error: " . $e->getMessage();
+                    }
+                } else {
+                    $error = "Please select at least 2 tables to compare.";
+                }
+                ?>
+                
+                <?php if (isset($paginated_results) && !empty($paginated_results)): ?>
+                    <div class="compare-results">
+                        <h3>Comparison Results (<?php echo $total_results; ?> matches found) - Page <?php echo $current_page; ?> of <?php echo $total_pages; ?></h3>
+                        
+                        <div class="action-buttons">
+                            <button onclick="exportCompareResults()" class="btn" style="background-color: #ff8c00; color: white;">Export Comparison Results</button>
+                            <button onclick="toggleCompareQuery()" class="btn" style="background-color: #17a2b8; color: white;">Show/Hide SQL Query</button>
+                        </div>
+                        
+                        <!-- SQL Query Display -->
+                        <div id="compare-query-display" style="display: none; margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+                            <h4>Executed SQL Query:</h4>
+                            <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;"><?php echo isset($compare_query) ? htmlspecialchars($compare_query) : 'No query available'; ?></pre>
+                        </div>
+                        
+                        <div class="preview-container">
+                            <table class="npc-matching-table">
+                                <thead>
+                                    <tr>
+                                        <?php foreach (array_keys($paginated_results[0]) as $header): ?>
+                                            <th><?php echo htmlspecialchars($header); ?></th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($paginated_results as $row): ?>
+                                        <tr>
+                                            <?php foreach ($row as $header => $value): ?>
+                                                <td class="<?php echo $header === 'cheapest_vendor' ? 'matched-data' : 'original-data'; ?>">
+                                                    <?php echo htmlspecialchars($value); ?>
+                                                </td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <?php if ($total_pages > 1): ?>
+                            <div class="pagination">
+                                <?php if ($current_page > 1): ?>
+                                    <a href="?action=compare_data&page=1" class="btn btn-secondary">First</a>
+                                    <a href="?action=compare_data&page=<?php echo $current_page - 1; ?>" class="btn btn-secondary">Previous</a>
+                                <?php endif; ?>
+                                
+                                <?php
+                                $start_page = max(1, $current_page - 2);
+                                $end_page = min($total_pages, $current_page + 2);
+                                
+                                for ($i = $start_page; $i <= $end_page; $i++):
+                                ?>
+                                    <a href="?action=compare_data&page=<?php echo $i; ?>" 
+                                       class="<?php echo $i == $current_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                
+                                <?php if ($current_page < $total_pages): ?>
+                                    <a href="?action=compare_data&page=<?php echo $current_page + 1; ?>" class="btn btn-secondary">Next</a>
+                                    <a href="?action=compare_data&page=<?php echo $total_pages; ?>" class="btn btn-secondary">Last</a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <script>
+                        function exportCompareResults() {
+                            window.location.href = 'all.php?action=export_compare';
+                        }
+                        
+                        function toggleCompareQuery() {
+                            const queryDisplay = document.getElementById('compare-query-display');
+                            if (queryDisplay.style.display === 'none') {
+                                queryDisplay.style.display = 'block';
+                            } else {
+                                queryDisplay.style.display = 'none';
+                            }
+                        }
+                    </script>
+                <?php endif; ?>
+                
+            <?php else: ?>
+                <?php
+                // Check if we have stored results and pagination info
+                if (isset($_SESSION['compare_results']) && isset($_SESSION['compare_pagination']) && isset($_GET['page'])) {
+                    $compare_results = $_SESSION['compare_results'];
+                    $pagination = $_SESSION['compare_pagination'];
+                    $total_results = $pagination['total_results'];
+                    $total_pages = $pagination['total_pages'];
+                    $per_page = $pagination['per_page'];
+                    $current_page = max(1, min((int)$_GET['page'], $total_pages));
+                    $offset = ($current_page - 1) * $per_page;
+                    $paginated_results = array_slice($compare_results, $offset, $per_page);
+                    
+                    // Update current page in session
+                    $_SESSION['compare_pagination']['current_page'] = $current_page;
+                } else {
+                    // Get all available import tables
+                    $stmt = $pdo->query("
+                        SELECT 
+                            ih.imported_table,
+                            ih.imported_at,
+                            ih.total_records,
+                            v.vendor_name
+                        FROM import_history ih
+                        JOIN vendors v ON v.id = ih.vendor_id
+                        ORDER BY ih.imported_at DESC
+                    ");
+                    $available_tables = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                }
+                ?>
+                
+                <?php if (isset($paginated_results) && !empty($paginated_results)): ?>
+                    <div class="compare-results">
+                        <h3>Comparison Results (<?php echo $total_results; ?> matches found) - Page <?php echo $current_page; ?> of <?php echo $total_pages; ?></h3>
+                        
+                        <div class="action-buttons">
+                            <button onclick="exportCompareResults()" class="btn" style="background-color: #ff8c00; color: white;">Export Comparison Results</button>
+                            <button onclick="toggleCompareQuery()" class="btn" style="background-color: #17a2b8; color: white;">Show/Hide SQL Query</button>
+                        </div>
+                        
+                        <!-- SQL Query Display -->
+                        <div id="compare-query-display" style="display: none; margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+                            <h4>Executed SQL Query:</h4>
+                            <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;"><?php echo isset($_SESSION['compare_query']) ? htmlspecialchars($_SESSION['compare_query']) : 'No query available'; ?></pre>
+                        </div>
+                        
+                        <div class="preview-container">
+                            <table class="npc-matching-table">
+                                <thead>
+                                    <tr>
+                                        <?php foreach (array_keys($paginated_results[0]) as $header): ?>
+                                            <th><?php echo htmlspecialchars($header); ?></th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($paginated_results as $row): ?>
+                                        <tr>
+                                            <?php foreach ($row as $header => $value): ?>
+                                                <td class="<?php echo $header === 'cheapest_vendor' ? 'matched-data' : 'original-data'; ?>">
+                                                    <?php echo htmlspecialchars($value); ?>
+                                                </td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <?php if ($total_pages > 1): ?>
+                            <div class="pagination">
+                                <?php if ($current_page > 1): ?>
+                                    <a href="?action=compare_data&page=1" class="btn btn-secondary">First</a>
+                                    <a href="?action=compare_data&page=<?php echo $current_page - 1; ?>" class="btn btn-secondary">Previous</a>
+                                <?php endif; ?>
+                                
+                                <?php
+                                $start_page = max(1, $current_page - 2);
+                                $end_page = min($total_pages, $current_page + 2);
+                                
+                                for ($i = $start_page; $i <= $end_page; $i++):
+                                ?>
+                                    <a href="?action=compare_data&page=<?php echo $i; ?>" 
+                                       class="<?php echo $i == $current_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                
+                                <?php if ($current_page < $total_pages): ?>
+                                    <a href="?action=compare_data&page=<?php echo $current_page + 1; ?>" class="btn btn-secondary">Next</a>
+                                    <a href="?action=compare_data&page=<?php echo $total_pages; ?>" class="btn btn-secondary">Last</a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <script>
+                        function exportCompareResults() {
+                            window.location.href = 'all.php?action=export_compare';
+                        }
+                        
+                        function toggleCompareQuery() {
+                            const queryDisplay = document.getElementById('compare-query-display');
+                            if (queryDisplay.style.display === 'none') {
+                                queryDisplay.style.display = 'block';
+                            } else {
+                                queryDisplay.style.display = 'none';
+                            }
+                        }
+                    </script>
+                <?php else: ?>
+                
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="compare_tables">Select Tables to Compare (at least 2):</label>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                            <?php foreach ($available_tables as $table): ?>
+                                <div style="margin-bottom: 10px;">
+                                    <input type="checkbox" name="compare_tables[]" value="<?php echo htmlspecialchars($table['imported_table']); ?>" id="table_<?php echo htmlspecialchars($table['imported_table']); ?>">
+                                    <label for="table_<?php echo htmlspecialchars($table['imported_table']); ?>">
+                                        <strong><?php echo htmlspecialchars($table['vendor_name']); ?></strong> 
+                                        (<?php echo htmlspecialchars($table['total_records']); ?> records) - 
+                                        <?php echo htmlspecialchars($table['imported_at']); ?>
+                                    </label>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="price_column">Price Column Name:</label>
+                        <input type="text" name="price_column" value="price" placeholder="Enter the column name containing prices">
+                        <small>Default is 'price'. Make sure this column exists in all selected tables.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn">Compare Data</button>
+                </form>
+            <?php endif; ?>
+            
+        <?php endif; ?>
             
         <?php elseif ($action === 'processing_results'): ?>
             <a href="all.php?action=view_data&table=<?php echo urlencode($_GET['table']); ?>" class="back-btn">← Back to Data</a>
