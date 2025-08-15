@@ -987,6 +987,374 @@ switch ($action) {
         }
         break;
         
+    case 'sku_inventory_report':
+        // Connect to NPC Website Database and fetch sales_demand_summary data
+        try {
+            // Get NPC Website Database connection
+            $npc_website_db = get_npc_website_connection();
+            
+            if ($npc_website_db) {
+                // Fetch data from sales_demand_summary table with pagination
+                $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+                $per_page = 50;
+                $offset = ($page - 1) * $per_page;
+                
+                // Get total count
+                $stmt = $npc_website_db->prepare("SELECT COUNT(*) FROM sales_demand_summary");
+                $stmt->execute();
+                $total_records = $stmt->fetchColumn();
+                $total_pages = ceil($total_records / $per_page);
+                
+                // Get data with pagination
+                $stmt = $npc_website_db->prepare("SELECT * FROM sales_demand_summary LIMIT :offset, :per_page");
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+                $stmt->bindParam(':per_page', $per_page, PDO::PARAM_INT);
+                $stmt->execute();
+                $sku_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Get column names
+                $stmt = $npc_website_db->query("SHOW COLUMNS FROM sales_demand_summary");
+                $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                // Set database and table info for display
+                $external_dbname = NPC_WEBSITE_NAME;
+                $external_table = 'sales_demand_summary';
+            } else {
+                $error = 'NPC Website Database connection not available';
+            }
+            
+        } catch (PDOException $e) {
+            $error = 'Failed to connect to NPC Website Database: ' . $e->getMessage();
+        }
+        break;
+        
+    case 'export_sku_report':
+        // Export all sales_demand_summary data to CSV
+        try {
+            $npc_website_db = get_npc_website_connection();
+            
+            if ($npc_website_db) {
+                // Get all data from sales_demand_summary table
+                $stmt = $npc_website_db->prepare("SELECT * FROM sales_demand_summary");
+                $stmt->execute();
+                $export_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (empty($export_data)) {
+                    die('No data to export');
+                }
+                
+                // Set headers for CSV download
+                $filename = 'sales_demand_summary_' . date('Y-m-d_H-i-s') . '.csv';
+                header('Content-Type: text/csv');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                
+                // Output CSV
+                $output = fopen('php://output', 'w');
+                
+                // Headers
+                fputcsv($output, array_keys($export_data[0]));
+                
+                // Data
+                foreach ($export_data as $row) {
+                    fputcsv($output, $row);
+                }
+                
+                fclose($output);
+                exit();
+            } else {
+                die('Database connection not available');
+            }
+            
+        } catch (PDOException $e) {
+            die('Export failed: ' . $e->getMessage());
+        }
+        break;
+        
+    case 'export_sku_matching':
+        // Export ALL SKU matching results to CSV (no LIMIT, no session data)
+        try {
+            $npc_db1 = get_npc_db1_connection();
+            
+            if ($npc_db1) {
+                // Always run the full query to get ALL results without any LIMIT
+                $export_query = "
+                SELECT DISTINCT 
+                    sds.SKU,
+                    sds.Need_3mo,
+                    sds.Need_6mo,
+                    sds.Purchase_Price,
+                    h.hollander_no as matched_590,
+                    i.inventory_no as hardware_number,
+                    s.mfr_software_no as software_number,
+                    'Software Match' as match_type
+                FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                    ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                INNER JOIN `" . NPC_DB1_NAME . "`.software s 
+                    ON s.inventory_id = i.inventory_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander_software_map hsm 
+                    ON hsm.software_id = s.software_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                    ON h.hollander_id = hsm.hollander_id
+                WHERE h.hollander_no IS NOT NULL
+
+                UNION ALL
+
+                SELECT DISTINCT 
+                    sds.SKU,
+                    sds.Need_3mo,
+                    sds.Need_6mo,
+                    sds.Purchase_Price,
+                    h.hollander_no as matched_590,
+                    i.inventory_no as hardware_number,
+                    '' as software_number,
+                    'Hardware Match' as match_type
+                FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                    ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory_hollander_map ihm 
+                    ON ihm.inventory_id = i.inventory_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                    ON h.hollander_id = ihm.hollander_id
+                WHERE h.hollander_no IS NOT NULL
+                
+                ORDER BY Need_3mo DESC, Need_6mo DESC
+                ";
+                
+                error_log("Export Query: " . $export_query);
+                
+                $result = $npc_db1->query($export_query);
+                if (!$result) {
+                    die('Export query failed');
+                }
+                $export_data = $result->fetchAll(PDO::FETCH_ASSOC);
+                $filename = 'sku_matching_results_' . date('Y-m-d_H-i-s') . '.csv';
+                
+                error_log("Export Data Count: " . count($export_data));
+            } else {
+                die('Database connection not available');
+            }
+            
+            if (empty($export_data)) {
+                die('No matching data to export');
+            }
+            
+            // Set headers for CSV download
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            // Output CSV
+            $output = fopen('php://output', 'w');
+            
+            // Headers
+            fputcsv($output, array_keys($export_data[0]));
+            
+            // Data
+            foreach ($export_data as $row) {
+                fputcsv($output, $row);
+            }
+            
+            fclose($output);
+            exit();
+            
+        } catch (Exception $e) {
+            die('Export failed: ' . $e->getMessage());
+        }
+        break;
+        
+    case 'find_sku_matching':
+        // Find matching 590 numbers from hardware/software to 590 numbers using NPC Database 1
+        try {
+            // Get NPC Database 1 connection
+            $npc_db1 = get_npc_db1_connection();
+            
+            if ($npc_db1) {
+                // Build the matching query to find 590 numbers from hardware/software - OPTIMIZED with UNION ALL
+                $matching_query = "
+                SELECT DISTINCT 
+                    sds.SKU,
+                    sds.Need_3mo,
+                    sds.Need_6mo,
+                    sds.Purchase_Price,
+                    h.hollander_no as matched_590,
+                    i.inventory_no as hardware_number,
+                    s.mfr_software_no as software_number,
+                    'Software Match' as match_type
+                FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                    ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                INNER JOIN `" . NPC_DB1_NAME . "`.software s 
+                    ON s.inventory_id = i.inventory_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander_software_map hsm 
+                    ON hsm.software_id = s.software_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                    ON h.hollander_id = hsm.hollander_id
+                WHERE h.hollander_no IS NOT NULL
+
+                UNION ALL
+
+                SELECT DISTINCT 
+                    sds.SKU,
+                    sds.Need_3mo,
+                    sds.Need_6mo,
+                    sds.Purchase_Price,
+                    h.hollander_no as matched_590,
+                    i.inventory_no as hardware_number,
+                    '' as software_number,
+                    'Hardware Match' as match_type
+                FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                    ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                INNER JOIN `" . NPC_DB1_NAME . "`.inventory_hollander_map ihm 
+                    ON ihm.inventory_id = i.inventory_id
+                INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                    ON h.hollander_id = ihm.hollander_id
+                WHERE h.hollander_no IS NOT NULL
+                
+                ORDER BY Need_3mo DESC, Need_6mo DESC
+                ";
+                
+                // Debug: Log the query
+                error_log("SKU Matching Query: " . $matching_query);
+                
+                // Debug: Check if we're in a loop
+                if (isset($_SESSION['sku_matching_debug_count'])) {
+                    $_SESSION['sku_matching_debug_count']++;
+                } else {
+                    $_SESSION['sku_matching_debug_count'] = 1;
+                }
+                
+                error_log("SKU Matching Debug Count: " . $_SESSION['sku_matching_debug_count']);
+                
+                // Debug: Test simple query first
+                try {
+                    $test_query = "SELECT COUNT(*) as count FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary";
+                    error_log("Test Query: " . $test_query);
+                    $test_result = $npc_db1->query($test_query);
+                    if ($test_result) {
+                        $test_count = $test_result->fetchColumn();
+                        error_log("Test Query Result: " . $test_count . " records in sales_demand_summary");
+                        
+                        // For large datasets, use a simpler approach
+                        if ($test_count > 1000) {
+                            error_log("Large dataset detected: " . $test_count . " records. Using simplified query");
+                            // Use a simpler, faster query for large datasets with both hardware and software matching
+                            $matching_query = "
+                            SELECT DISTINCT 
+                                sds.SKU,
+                                sds.Need_3mo,
+                                sds.Need_6mo,
+                                sds.Purchase_Price,
+                                h.hollander_no as matched_590,
+                                i.inventory_no as hardware_number,
+                                s.mfr_software_no as software_number,
+                                'Software Match' as match_type
+                            FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                            INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                                ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                            INNER JOIN `" . NPC_DB1_NAME . "`.software s 
+                                ON s.inventory_id = i.inventory_id
+                            INNER JOIN `" . NPC_DB1_NAME . "`.hollander_software_map hsm 
+                                ON hsm.software_id = s.software_id
+                            INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                                ON h.hollander_id = hsm.hollander_id
+                            WHERE h.hollander_no IS NOT NULL
+                            AND (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+
+                            UNION ALL
+
+                            SELECT DISTINCT 
+                                sds.SKU,
+                                sds.Need_3mo,
+                                sds.Need_6mo,
+                                sds.Purchase_Price,
+                                h.hollander_no as matched_590,
+                                i.inventory_no as hardware_number,
+                                '' as software_number,
+                                'Hardware Match' as match_type
+                            FROM `" . NPC_WEBSITE_NAME . "`.sales_demand_summary sds
+                            INNER JOIN `" . NPC_DB1_NAME . "`.inventory i 
+                                ON i.inventory_no COLLATE utf8mb4_unicode_520_ci = sds.SKU COLLATE utf8mb4_unicode_520_ci
+                            INNER JOIN `" . NPC_DB1_NAME . "`.inventory_hollander_map ihm 
+                                ON ihm.inventory_id = i.inventory_id
+                            INNER JOIN `" . NPC_DB1_NAME . "`.hollander h 
+                                ON h.hollander_id = ihm.hollander_id
+                            WHERE h.hollander_no IS NOT NULL
+                            AND (sds.Need_3mo > 0 OR sds.Need_6mo > 0)
+                            
+                            ORDER BY Need_3mo DESC, Need_6mo DESC
+                            ";
+                        }
+                    } else {
+                        error_log("Test Query Failed");
+                    }
+                } catch (Exception $e) {
+                    error_log("Test Query Error: " . $e->getMessage());
+                }
+                
+                // Execute the query
+                $result = $npc_db1->query($matching_query);
+                if (!$result) {
+                    $error_info = $npc_db1->errorInfo();
+                    throw new Exception("Database query failed: " . $error_info[2]);
+                }
+                $matching_results = $result->fetchAll(PDO::FETCH_ASSOC);
+                
+                error_log("SKU Matching Results Count: " . count($matching_results));
+                
+                // Store results in session
+                $_SESSION['sku_matching_results'] = $matching_results;
+                $_SESSION['sku_matching_count'] = count($matching_results);
+                $_SESSION['sku_matching_query'] = $matching_query;
+                
+                // Simple pagination without COUNT query for speed
+                $per_page = 50;
+                $current_page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+                $offset = ($current_page - 1) * $per_page;
+                
+                // Add pagination to the main query
+                $matching_query .= " LIMIT $per_page OFFSET $offset";
+                error_log("Final Query with Pagination: " . $matching_query);
+                
+                // Execute the paginated query
+                $result = $npc_db1->query($matching_query);
+                if (!$result) {
+                    $error_info = $npc_db1->errorInfo();
+                    throw new Exception("Database query failed: " . $error_info[2]);
+                }
+                $paginated_results = $result->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Simple pagination info (no total count needed)
+                $total_results = count($paginated_results) + $offset; // Estimate
+                $total_pages = $current_page + 10; // Show more pages
+                if (count($paginated_results) < $per_page) {
+                    $total_pages = $current_page; // Last page
+                }
+                
+                // Store pagination info in session
+                $_SESSION['sku_matching_pagination'] = [
+                    'total_results' => $total_results,
+                    'total_pages' => $total_pages,
+                    'per_page' => $per_page,
+                    'current_page' => $current_page
+                ];
+                
+                error_log("SKU Matching Pagination: Page $current_page of $total_pages, Showing " . count($paginated_results) . " results");
+                
+            } else {
+                $error = 'NPC Database 1 connection not available';
+            }
+            
+        } catch (Exception $e) {
+            error_log("SKU matching error: " . $e->getMessage());
+            $error = "Matching Error: " . $e->getMessage();
+        }
+        break;
+        
     default:
         // Dashboard action
         break;
@@ -1639,6 +2007,49 @@ if ($action !== 'process') {
             color: #856404 !important;
             font-weight: bold;
         }
+        
+        /* SKU Inventory Report styles */
+        .sku-report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .sku-report-table th,
+        .sku-report-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .sku-report-table th {
+            background-color: #28a745;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .sku-report-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .sku-report-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .sku-report-header h3 {
+            margin: 0 0 10px 0;
+            color: #28a745;
+        }
+        
+        .sku-report-header p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -1664,6 +2075,7 @@ if ($action !== 'process') {
                 <a href="all.php?action=upload" class="btn">Upload New Data</a>
                 <a href="all.php?action=view_data" class="btn btn-secondary">View All Imports</a>
                 <a href="all.php?action=compare_data" class="btn" style="background-color: #ff8c00;">Compare Data</a>
+                <a href="all.php?action=sku_inventory_report" class="btn" style="background-color: #28a745;">Sales Demand Summary</a>
             </div>
             
         <?php elseif ($action === 'upload'): ?>
@@ -2661,6 +3073,182 @@ WHERE p.part_number IS NOT NULL AND p.part_number != ''";
             <?php endif; ?>
             
         <?php endif; ?>
+            
+        <?php elseif ($action === 'sku_inventory_report'): ?>
+            <h2>Sales Demand Summary Report</h2>
+            
+            <?php if (isset($error)): ?>
+                <div class="status-message status-error">
+                    <?php echo htmlspecialchars($error); ?>
+                </div>
+            <?php elseif (isset($sku_data) && !empty($sku_data)): ?>
+                <div class="sku-report-header">
+                    <h3>NPC Website Database: <?php echo htmlspecialchars($external_dbname); ?></h3>
+                    <p><strong>Table:</strong> <?php echo htmlspecialchars($external_table); ?></p>
+                    <p><strong>Total Records:</strong> <?php echo htmlspecialchars($total_records); ?></p>
+                    <p><strong>Showing:</strong> Page <?php echo htmlspecialchars($page); ?> of <?php echo htmlspecialchars($total_pages); ?></p>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="all.php?action=export_sku_report" class="btn" style="background-color: #28a745; color: white;">Export All Data to CSV</a>
+                    <a href="all.php?action=find_sku_matching" class="btn" style="background-color: #007bff; color: white;">Find Matching</a>
+                </div>
+                
+                <div class="preview-container">
+                    <table class="sku-report-table">
+                        <thead>
+                            <tr>
+                                <?php foreach ($columns as $column): ?>
+                                    <th><?php echo htmlspecialchars($column); ?></th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($sku_data as $row): ?>
+                                <tr>
+                                    <?php foreach ($columns as $column): ?>
+                                        <td><?php echo htmlspecialchars($row[$column] ?? ''); ?></td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <?php if ($total_pages > 1): ?>
+                    <div class="pagination">
+                        <?php if ($page > 1): ?>
+                            <a href="?action=sku_inventory_report&page=1" class="btn btn-secondary">First</a>
+                            <a href="?action=sku_inventory_report&page=<?php echo $page - 1; ?>" class="btn btn-secondary">Previous</a>
+                        <?php endif; ?>
+                        
+                        <?php
+                        $start_page = max(1, $page - 2);
+                        $end_page = min($total_pages, $page + 2);
+                        
+                        for ($i = $start_page; $i <= $end_page; $i++):
+                        ?>
+                            <a href="?action=sku_inventory_report&page=<?php echo $i; ?>" 
+                               class="<?php echo $i == $page ? 'active' : ''; ?>">
+                                <?php echo $i; ?>
+                            </a>
+                        <?php endfor; ?>
+                        
+                        <?php if ($page < $total_pages): ?>
+                            <a href="?action=sku_inventory_report&page=<?php echo $page + 1; ?>" class="btn btn-secondary">Next</a>
+                            <a href="?action=sku_inventory_report&page=<?php echo $total_pages; ?>" class="btn btn-secondary">Last</a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                
+            <?php else: ?>
+                <div class="status-message status-info">
+                    <p>No SKU inventory data found or connection failed.</p>
+                </div>
+            <?php endif; ?>
+            
+        <?php elseif ($action === 'find_sku_matching'): ?>
+            <h2>SKU Matching Results</h2>
+            
+            <?php if (isset($error)): ?>
+                <div class="status-message status-error">
+                    <?php echo htmlspecialchars($error); ?>
+                </div>
+            <?php elseif (isset($paginated_results) && !empty($paginated_results)): ?>
+                <div class="sku-report-header">
+                    <h3>Matching Results (<?php echo $total_results; ?> matches found)</h3>
+                    <p><strong>Database:</strong> NPC Database 1 (test_play)</p>
+                    <p><strong>Showing:</strong> Page <?php echo $current_page; ?> of <?php echo $total_pages; ?></p>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="all.php?action=export_sku_matching" class="btn" style="background-color: #28a745; color: white;">Export All Matching Results</a>
+                    <button onclick="toggleSkuMatchingQuery()" class="btn" style="background-color: #17a2b8; color: white;">Show/Hide SQL Query</button>
+                </div>
+                
+                <!-- Debug Information -->
+                <div style="background: #f8f9fa; padding: 15px; border: 1px solid #e9ecef; border-radius: 8px; margin: 20px 0;">
+                    <h4>Debug Information:</h4>
+                    <p><strong>Debug Count:</strong> <?php echo isset($_SESSION['sku_matching_debug_count']) ? $_SESSION['sku_matching_debug_count'] : 'Not set'; ?></p>
+                    <p><strong>Total Results:</strong> <?php echo $total_results; ?></p>
+                    <p><strong>Current Page:</strong> <?php echo $current_page; ?></p>
+                    <p><strong>Total Pages:</strong> <?php echo $total_pages; ?></p>
+                    <p><strong>Results on this page:</strong> <?php echo count($paginated_results); ?></p>
+                </div>
+                
+                <!-- SQL Query Display -->
+                <div id="sku-matching-query-display" style="display: none; margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+                    <h4>Executed SQL Query:</h4>
+                    <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;"><?php echo isset($_SESSION['sku_matching_query']) ? htmlspecialchars($_SESSION['sku_matching_query']) : 'No query available'; ?></pre>
+                </div>
+                
+                <div class="preview-container">
+                    <table class="sku-report-table">
+                        <thead>
+                            <tr>
+                                <?php foreach (array_keys($paginated_results[0]) as $header): ?>
+                                    <th><?php echo htmlspecialchars($header); ?></th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($paginated_results as $row): ?>
+                                <tr>
+                                    <?php foreach ($row as $header => $value): ?>
+                                        <td class="<?php echo $header === 'match_type' ? 'matched-data' : 'original-data'; ?>">
+                                            <?php echo htmlspecialchars($value); ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <?php if ($total_pages > 1): ?>
+                    <div class="pagination">
+                        <?php if ($current_page > 1): ?>
+                            <a href="?action=find_sku_matching&page=1" class="btn btn-secondary">First</a>
+                            <a href="?action=find_sku_matching&page=<?php echo $current_page - 1; ?>" class="btn btn-secondary">Previous</a>
+                        <?php endif; ?>
+                        
+                        <?php
+                        $start_page = max(1, $current_page - 2);
+                        $end_page = min($total_pages, $current_page + 2);
+                        
+                        for ($i = $start_page; $i <= $end_page; $i++):
+                        ?>
+                            <a href="?action=find_sku_matching&page=<?php echo $i; ?>" 
+                               class="<?php echo $i == $current_page ? 'active' : ''; ?>">
+                                <?php echo $i; ?>
+                            </a>
+                        <?php endfor; ?>
+                        
+                        <?php if ($current_page < $total_pages): ?>
+                            <a href="?action=find_sku_matching&page=<?php echo $current_page + 1; ?>" class="btn btn-secondary">Next</a>
+                            <a href="?action=find_sku_matching&page=<?php echo $total_pages; ?>" class="btn btn-secondary">Last</a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <script>
+                    function toggleSkuMatchingQuery() {
+                        const queryDisplay = document.getElementById('sku-matching-query-display');
+                        if (queryDisplay.style.display === 'none') {
+                            queryDisplay.style.display = 'block';
+                        } else {
+                            queryDisplay.style.display = 'none';
+                        }
+                    }
+                </script>
+                
+            <?php else: ?>
+                <div class="status-message status-info">
+                    <p>No matching results found or connection failed.</p>
+                </div>
+            <?php endif; ?>
             
         <?php elseif ($action === 'processing_results'): ?>
             <a href="all.php?action=view_data&table=<?php echo urlencode($_GET['table']); ?>" class="back-btn">← Back to Data</a>
